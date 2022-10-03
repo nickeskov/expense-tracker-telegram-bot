@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense"
 	expenseInMemRepo "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/repository/inmemory"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 )
@@ -14,7 +15,7 @@ func newUC(t *testing.T) *UseCase {
 	repo := expenseInMemRepo.New()
 	uc := New(repo)
 	t.Cleanup(func() {
-		require.NoError(t, uc.Close())
+		require.NoError(t, repo.Close())
 	})
 	return uc
 }
@@ -51,34 +52,34 @@ func TestUseCase_ExpensesSummaryByCategorySince(t *testing.T) {
 		since               time.Time
 		till                time.Time
 		expenses            []models.Expense
-		summaryByCategories map[models.ExpenseCategory]float64
+		summaryByCategories expense.SummaryReport
 	}{
-		{expenses: nil, summaryByCategories: map[models.ExpenseCategory]float64{}},
+		{expenses: nil, summaryByCategories: expense.SummaryReport{}},
 		{
 			since:               midnight,
 			till:                midnight.Add(timeDelta),
 			expenses:            expenses,
-			summaryByCategories: map[models.ExpenseCategory]float64{"cat1": 333, "cat2": 999},
+			summaryByCategories: expense.SummaryReport{"cat1": 333, "cat2": 999},
 		},
 		{
 			since:               midnight,
 			till:                midnight.Add(timeDelta / 2),
 			expenses:            expenses,
-			summaryByCategories: map[models.ExpenseCategory]float64{"cat1": 333},
+			summaryByCategories: expense.SummaryReport{"cat1": 333},
 		},
 		{
 			since:               midnight.Add(timeDelta),
 			till:                midnight,
 			expenses:            expenses,
-			summaryByCategories: map[models.ExpenseCategory]float64{},
+			summaryByCategories: expense.SummaryReport{},
 		},
 	}
 	for i, test := range tests {
 		testCase := test
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
 			uc := newUC(t)
-			for _, expense := range testCase.expenses {
-				_, err := uc.AddExpense(userID, expense)
+			for _, exp := range testCase.expenses {
+				_, err := uc.AddExpense(userID, exp)
 				require.NoError(t, err)
 			}
 			summary, err := uc.ExpensesSummaryByCategorySince(userID, testCase.since, testCase.till)

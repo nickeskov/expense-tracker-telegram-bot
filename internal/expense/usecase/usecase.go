@@ -20,18 +20,26 @@ func (u *UseCase) AddExpense(id models.UserID, e models.Expense) (models.Expense
 	return u.repo.AddExpense(id, e)
 }
 
-func (u *UseCase) ExpensesSummaryByCategorySince(userID models.UserID, since, till time.Time) (map[models.ExpenseCategory]float64, error) {
-	out := make(map[models.ExpenseCategory]float64)
+func (u *UseCase) ExpensesSummaryByCategorySince(userID models.UserID, since, till time.Time) (expense.SummaryReport, error) {
+	out := make(expense.SummaryReport)
 	err := u.repo.ExpensesAscendSinceTill(userID, since, till, func(expense *models.Expense) bool {
 		out[expense.Category] += expense.Amount
 		return true
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to iterate through expenses of userID=%d", userID)
+		return nil, errors.Wrapf(err, "failed to iterate through expenses of userID=%d ans split by categories", userID)
 	}
 	return out, nil
 }
 
-func (u *UseCase) Close() error {
-	return u.repo.Close()
+func (u *UseCase) ExpensesAscendSinceTill(userID models.UserID, since, till time.Time, max int) ([]models.Expense, error) {
+	var out []models.Expense
+	err := u.repo.ExpensesAscendSinceTill(userID, since, till, func(expense *models.Expense) bool {
+		out = append(out, *expense)
+		return len(out) < max
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to iterate through expenses of userID=%d", userID)
+	}
+	return out, nil
 }
