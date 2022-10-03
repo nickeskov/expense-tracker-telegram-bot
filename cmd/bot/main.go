@@ -9,6 +9,8 @@ import (
 
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/clients/tg"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/config"
+	expenseRepo "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/repository/inmemory"
+	expenseUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/usecase"
 )
 
 var (
@@ -21,7 +23,14 @@ func main() {
 	if err != nil {
 		log.Fatal("Config init failed:", err)
 	}
-	cl, err := tg.NewWithOptions(cfg.Token(), tg.Options{
+	repo := expenseRepo.New()
+	defer func() {
+		if err := repo.Close(); err != nil {
+			log.Println("Failed to close expenses repository:", err)
+		}
+	}()
+	useCase := expenseUseCase.New(repo)
+	cl, err := tg.NewWithOptions(cfg.Token(), useCase, tg.Options{
 		Logger:     log.Default(),
 		LogUpdates: cfg.Values().LogUpdates,
 		WhiteList:  cfg.Values().WhiteList,
