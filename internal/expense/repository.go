@@ -12,8 +12,9 @@ var (
 )
 
 type Repository interface {
-	AddExpense(id models.UserID, e models.Expense) (models.Expense, error)
+	AddExpense(userID models.UserID, expense models.Expense) (models.Expense, error)
 	GetExpense(userID models.UserID, expenseID models.ExpenseID) (models.Expense, error)
 	ExpensesByDate(userID models.UserID, date time.Time) ([]models.Expense, error)
-	ExpensesSummaryByCategorySince(id models.UserID, since, till time.Time) (map[models.ExpenseCategory]float64, error)
+	ExpensesAscendSinceTill(userID models.UserID, since, till time.Time, iter func(expense *models.Expense) bool) error
+	Close() error
 }

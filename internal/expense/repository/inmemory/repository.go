@@ -72,20 +72,20 @@ func (r *Repository) getOrInitUserExpenses(userID models.UserID) *userExpenses {
 	return expenses
 }
 
-func (r *Repository) AddExpense(id models.UserID, e models.Expense) (models.Expense, error) {
-	expenses := r.getOrInitUserExpenses(id)
+func (r *Repository) AddExpense(userID models.UserID, expense models.Expense) (models.Expense, error) {
+	expenses := r.getOrInitUserExpenses(userID)
 	expenses.Lock()
 	defer expenses.Unlock()
 
-	keyVal := newExpensesAtOneDate(e.Date)
+	keyVal := newExpensesAtOneDate(expense.Date)
 	expensesAtOneDay, ok := expenses.byDate.Get(keyVal)
 	if !ok {
 		expensesAtOneDay = keyVal
 		expenses.byDate.ReplaceOrInsert(expensesAtOneDay)
 	}
-	expensesAtOneDay.expenses = append(expensesAtOneDay.expenses, &e)
-	expenses.byID[e.ID] = &e
-	return e, nil
+	expensesAtOneDay.expenses = append(expensesAtOneDay.expenses, &expense)
+	expenses.byID[expense.ID] = &expense
+	return expense, nil
 }
 
 func (r *Repository) GetExpense(userID models.UserID, expenseID models.ExpenseID) (models.Expense, error) {
@@ -110,6 +110,44 @@ func (r *Repository) ExpensesByDate(userID models.UserID, date time.Time) ([]mod
 		return nil, nil
 	}
 	return expensesAtOneDay.cloneExpenses(), nil
+}
+
+func (r *Repository) ExpensesAscendSinceTill(
+	userID models.UserID,
+	since, till time.Time,
+	iter func(expense *models.Expense) bool,
+) error {
+	expenses := r.getOrInitUserExpenses(userID)
+	expenses.Lock()
+	defer expenses.Unlock()
+
+	if since.Equal(till) {
+		key := newExpensesAtOneDate(since)
+		if atOneDate, ok := expenses.byDate.Get(key); ok {
+			for _, e := range atOneDate.expenses {
+				if !iter(e) {
+					return nil
+				}
+			}
+		}
+	} else {
+		var (
+			greaterOrEqual = newExpensesAtOneDate(since)
+			lessThan       = newExpensesAtOneDate(till)
+		)
+		expenses.byDate.AscendGreaterOrEqual(greaterOrEqual, func(atOneDate *expensesAtOneDate) bool {
+			if atOneDate.date.After(lessThan.date) {
+				return false
+			}
+			for _, e := range atOneDate.expenses {
+				if !iter(e) {
+					return false
+				}
+			}
+			return true
+		})
+	}
+	return nil
 }
 
 func (r *Repository) ExpensesSummaryByCategorySince(userID models.UserID, since, till time.Time) (map[models.ExpenseCategory]float64, error) {

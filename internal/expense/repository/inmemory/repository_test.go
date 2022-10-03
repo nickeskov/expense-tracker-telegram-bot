@@ -41,7 +41,7 @@ func Test_ExpenseRoundTrip(t *testing.T) {
 	require.Equal(t, expected, expensesByDate[0])
 }
 
-func TestRepository_ExpensesSummaryByCategorySince(t *testing.T) {
+func TestRepository_ExpensesAscendSinceTill(t *testing.T) {
 	const userID = models.UserID(10)
 	now := time.Now()
 	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
@@ -70,30 +70,29 @@ func TestRepository_ExpensesSummaryByCategorySince(t *testing.T) {
 		},
 	}
 	tests := []struct {
-		since               time.Time
-		till                time.Time
-		expenses            []models.Expense
-		summaryByCategories map[models.ExpenseCategory]float64
+		since            time.Time
+		till             time.Time
+		expenses         []models.Expense
+		expectedExpenses []models.Expense
 	}{
-		{expenses: nil, summaryByCategories: map[models.ExpenseCategory]float64{}},
-		{expenses: []models.Expense{}, summaryByCategories: map[models.ExpenseCategory]float64{}},
+		{expenses: nil, expectedExpenses: nil},
 		{
-			since:               midnight,
-			till:                midnight.Add(timeDelta),
-			expenses:            expenses,
-			summaryByCategories: map[models.ExpenseCategory]float64{"cat1": 333, "cat2": 999},
+			since:            midnight,
+			till:             midnight.Add(timeDelta),
+			expenses:         expenses,
+			expectedExpenses: expenses,
 		},
 		{
-			since:               midnight,
-			till:                midnight.Add(timeDelta / 2),
-			expenses:            expenses,
-			summaryByCategories: map[models.ExpenseCategory]float64{"cat1": 333},
+			since:            midnight,
+			till:             midnight.Add(timeDelta / 2),
+			expenses:         expenses,
+			expectedExpenses: expenses[:2],
 		},
 		{
-			since:               midnight.Add(timeDelta),
-			till:                midnight,
-			expenses:            expenses,
-			summaryByCategories: map[models.ExpenseCategory]float64{},
+			since:            midnight.Add(timeDelta),
+			till:             midnight,
+			expenses:         expenses,
+			expectedExpenses: nil,
 		},
 	}
 	for i, test := range tests {
@@ -104,9 +103,14 @@ func TestRepository_ExpensesSummaryByCategorySince(t *testing.T) {
 				_, err := r.AddExpense(userID, expense)
 				require.NoError(t, err)
 			}
-			summary, err := r.ExpensesSummaryByCategorySince(userID, testCase.since, testCase.till)
+			var actualExpenses []models.Expense
+			err := r.ExpensesAscendSinceTill(userID, testCase.since, testCase.till, func(e *models.Expense) bool {
+				actualExpenses = append(actualExpenses, *e)
+				return true
+			})
 			require.NoError(t, err)
-			require.Equal(t, testCase.summaryByCategories, summary)
+			require.Equal(t, testCase.expectedExpenses, actualExpenses)
 		})
 	}
+
 }
