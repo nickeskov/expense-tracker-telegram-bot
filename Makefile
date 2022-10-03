@@ -20,6 +20,7 @@ run:
 
 generate: install-mockgen
 	${MOCKGEN} -source=internal/expense/repository.go -destination=internal/mocks/expense/repository.go
+	${MOCKGEN} -source=internal/expense/usecase.go -destination=internal/mocks/expense/usecase.go
 
 lint: install-lint
 	${LINTBIN} run
