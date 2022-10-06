@@ -150,37 +150,6 @@ func (r *Repository) ExpensesAscendSinceTill(
 	return nil
 }
 
-func (r *Repository) ExpensesSummaryByCategorySince(userID models.UserID, since, till time.Time) (map[models.ExpenseCategory]float64, error) {
-	out := make(map[models.ExpenseCategory]float64)
-	expenses := r.getOrInitUserExpenses(userID)
-	expenses.Lock()
-	defer expenses.Unlock()
-
-	if since.Equal(till) {
-		key := newExpensesAtOneDate(since)
-		if atOneDate, ok := expenses.byDate.Get(key); ok {
-			for _, e := range atOneDate.expenses {
-				out[e.Category] += e.Amount
-			}
-		}
-	} else {
-		var (
-			greaterOrEqual = newExpensesAtOneDate(since)
-			lessThan       = newExpensesAtOneDate(till)
-		)
-		expenses.byDate.AscendGreaterOrEqual(greaterOrEqual, func(atOneDate *expensesAtOneDate) bool {
-			if atOneDate.date.After(lessThan.date) {
-				return false
-			}
-			for _, e := range atOneDate.expenses {
-				out[e.Category] += e.Amount
-			}
-			return true
-		})
-	}
-	return out, nil
-}
-
 func (r *Repository) Close() error {
 	return nil // no-op
 }
