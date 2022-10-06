@@ -4,6 +4,7 @@ default:
 stages:
   - build
   - test
+  - security
 
 build:
   stage: build
@@ -19,3 +20,40 @@ lint:
   stage: test
   script:
     - make lint
+
+gosec:
+  stage: security
+  script:
+    - go install github.com/securego/gosec/v2/cmd/gosec@latest
+    - gosec ./...
+
+nancy:
+  stage: security
+  script:
+    - go install github.com/sonatype-nexus-community/nancy@latest
+    - go list -json -deps ./... | nancy sleuth
+
+govulncheck:
+  stage: security
+  script:
+    - go install golang.org/x/vuln/cmd/govulncheck@latest
+    - govulncheck ./...
+
+semgrep:
+  stage: security
+  image: returntocorp/semgrep:latest
+  script:
+    - |
+      cat << 'EOF' | bash
+          semgrep ci --config=auto --gitlab-sast --output=gl-sast-report.json --max-target-bytes=2MB
+          EXIT_CODE=$?
+          if [ "$EXIT_CODE" = "0" ] || [ "$EXIT_CODE" = "1" ]
+          then
+            exit 0
+          else
+            exit $EXIT_CODE
+          fi
+      EOF
+  artifacts:
+    reports:
+      sast: gl-sast-report.json
