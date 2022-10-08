@@ -54,11 +54,11 @@ func newUserExpensesByDate(btreeDegree int) *userExpenses {
 	}
 }
 
-func New() *Repository {
+func New() (*Repository, error) {
 	return &Repository{
 		mu:           &sync.Mutex{},
 		userExpenses: map[models.UserID]*userExpenses{},
-	}
+	}, nil
 }
 
 func (r *Repository) getOrInitUserExpenses(userID models.UserID) *userExpenses {

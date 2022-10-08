@@ -12,8 +12,10 @@ import (
 )
 
 func newUC(t *testing.T) *UseCase {
-	repo := expenseInMemRepo.New()
-	uc := New(repo)
+	repo, err := expenseInMemRepo.New()
+	require.NoError(t, err)
+	uc, err := New(repo)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, repo.Close())
 	})

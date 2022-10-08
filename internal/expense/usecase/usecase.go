@@ -12,8 +12,8 @@ type UseCase struct {
 	repo expense.Repository
 }
 
-func New(repo expense.Repository) *UseCase {
-	return &UseCase{repo: repo}
+func New(repo expense.Repository) (*UseCase, error) {
+	return &UseCase{repo: repo}, nil
 }
 
 func (u *UseCase) AddExpense(id models.UserID, e models.Expense) (models.Expense, error) {

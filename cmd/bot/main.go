@@ -23,13 +23,19 @@ func main() {
 	if err != nil {
 		log.Fatal("Config init failed:", err)
 	}
-	repo := expenseRepo.New()
+	repo, err := expenseRepo.New()
+	if err != nil {
+		log.Fatal("Failed to create expenses repository:", err)
+	}
 	defer func() {
 		if err := repo.Close(); err != nil {
 			log.Println("Failed to close expenses repository:", err)
 		}
 	}()
-	useCase := expenseUseCase.New(repo)
+	useCase, err := expenseUseCase.New(repo)
+	if err != nil {
+		log.Fatal("Failed to create expenses usecase:", err)
+	}
 	cl, err := tg.NewWithOptions(cfg.Token(), useCase, tg.Options{
 		Logger:     log.Default(),
 		LogUpdates: cfg.Values().LogUpdates,
