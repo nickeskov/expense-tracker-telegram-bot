@@ -1,6 +1,7 @@
 package expense
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -33,7 +34,7 @@ func (r SummaryReport) Text() string {
 }
 
 type UseCase interface {
-	AddExpense(userID models.UserID, expense models.Expense) (models.Expense, error)
-	ExpensesSummaryByCategorySince(userID models.UserID, since, till time.Time) (SummaryReport, error)
-	ExpensesAscendSinceTill(userID models.UserID, since, till time.Time, max int) ([]models.Expense, error)
+	AddExpense(ctx context.Context, userID models.UserID, expense models.Expense) (models.Expense, error)
+	ExpensesSummaryByCategorySince(ctx context.Context, userID models.UserID, since, till time.Time) (SummaryReport, error)
+	ExpensesAscendSinceTill(ctx context.Context, userID models.UserID, since, till time.Time, max int) ([]models.Expense, error)
 }

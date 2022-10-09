@@ -47,7 +47,7 @@ func main() {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
-	go cl.Start()
+	go cl.Start(ctx)
 	log.Println("Bot initialized successfully ans started")
 	<-ctx.Done()
 	log.Println("Stopping bot...")

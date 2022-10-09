@@ -1,6 +1,7 @@
 package expense
 
 import (
+	"context"
 	"time"
 
 	"github.com/pkg/errors"
@@ -12,9 +13,9 @@ var (
 )
 
 type Repository interface {
-	AddExpense(userID models.UserID, expense models.Expense) (models.Expense, error)
-	GetExpense(userID models.UserID, expenseID models.ExpenseID) (models.Expense, error)
-	ExpensesByDate(userID models.UserID, date time.Time) ([]models.Expense, error)
-	ExpensesAscendSinceTill(userID models.UserID, since, till time.Time, iter func(expense *models.Expense) bool) error
+	AddExpense(ctx context.Context, userID models.UserID, expense models.Expense) (models.Expense, error)
+	GetExpense(ctx context.Context, userID models.UserID, expenseID models.ExpenseID) (models.Expense, error)
+	ExpensesByDate(ctx context.Context, userID models.UserID, date time.Time) ([]models.Expense, error)
+	ExpensesAscendSinceTill(ctx context.Context, userID models.UserID, since, till time.Time, iter func(expense *models.Expense) bool) error
 	Close() error
 }

@@ -5,6 +5,7 @@
 package mock_expense
 
 import (
+	context "context"
 	reflect "reflect"
 	time "time"
 
@@ -37,46 +38,46 @@ func (m *MockUseCase) EXPECT() *MockUseCaseMockRecorder {
 }
 
 // AddExpense mocks base method.
-func (m *MockUseCase) AddExpense(userID models.UserID, expense models.Expense) (models.Expense, error) {
+func (m *MockUseCase) AddExpense(ctx context.Context, userID models.UserID, expense models.Expense) (models.Expense, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddExpense", userID, expense)
+	ret := m.ctrl.Call(m, "AddExpense", ctx, userID, expense)
 	ret0, _ := ret[0].(models.Expense)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddExpense indicates an expected call of AddExpense.
-func (mr *MockUseCaseMockRecorder) AddExpense(userID, expense interface{}) *gomock.Call {
+func (mr *MockUseCaseMockRecorder) AddExpense(ctx, userID, expense interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddExpense", reflect.TypeOf((*MockUseCase)(nil).AddExpense), userID, expense)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddExpense", reflect.TypeOf((*MockUseCase)(nil).AddExpense), ctx, userID, expense)
 }
 
 // ExpensesAscendSinceTill mocks base method.
-func (m *MockUseCase) ExpensesAscendSinceTill(userID models.UserID, since, till time.Time, max int) ([]models.Expense, error) {
+func (m *MockUseCase) ExpensesAscendSinceTill(ctx context.Context, userID models.UserID, since, till time.Time, max int) ([]models.Expense, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExpensesAscendSinceTill", userID, since, till, max)
+	ret := m.ctrl.Call(m, "ExpensesAscendSinceTill", ctx, userID, since, till, max)
 	ret0, _ := ret[0].([]models.Expense)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ExpensesAscendSinceTill indicates an expected call of ExpensesAscendSinceTill.
-func (mr *MockUseCaseMockRecorder) ExpensesAscendSinceTill(userID, since, till, max interface{}) *gomock.Call {
+func (mr *MockUseCaseMockRecorder) ExpensesAscendSinceTill(ctx, userID, since, till, max interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExpensesAscendSinceTill", reflect.TypeOf((*MockUseCase)(nil).ExpensesAscendSinceTill), userID, since, till, max)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExpensesAscendSinceTill", reflect.TypeOf((*MockUseCase)(nil).ExpensesAscendSinceTill), ctx, userID, since, till, max)
 }
 
 // ExpensesSummaryByCategorySince mocks base method.
-func (m *MockUseCase) ExpensesSummaryByCategorySince(userID models.UserID, since, till time.Time) (expense.SummaryReport, error) {
+func (m *MockUseCase) ExpensesSummaryByCategorySince(ctx context.Context, userID models.UserID, since, till time.Time) (expense.SummaryReport, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExpensesSummaryByCategorySince", userID, since, till)
+	ret := m.ctrl.Call(m, "ExpensesSummaryByCategorySince", ctx, userID, since, till)
 	ret0, _ := ret[0].(expense.SummaryReport)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ExpensesSummaryByCategorySince indicates an expected call of ExpensesSummaryByCategorySince.
-func (mr *MockUseCaseMockRecorder) ExpensesSummaryByCategorySince(userID, since, till interface{}) *gomock.Call {
+func (mr *MockUseCaseMockRecorder) ExpensesSummaryByCategorySince(ctx, userID, since, till interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExpensesSummaryByCategorySince", reflect.TypeOf((*MockUseCase)(nil).ExpensesSummaryByCategorySince), userID, since, till)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExpensesSummaryByCategorySince", reflect.TypeOf((*MockUseCase)(nil).ExpensesSummaryByCategorySince), ctx, userID, since, till)
 }

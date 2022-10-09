@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -78,13 +79,14 @@ func TestUseCase_ExpensesSummaryByCategorySince(t *testing.T) {
 	}
 	for i, test := range tests {
 		testCase := test
+		ctx := context.Background()
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
 			uc := newUC(t)
 			for _, exp := range testCase.expenses {
-				_, err := uc.AddExpense(userID, exp)
+				_, err := uc.AddExpense(ctx, userID, exp)
 				require.NoError(t, err)
 			}
-			summary, err := uc.ExpensesSummaryByCategorySince(userID, testCase.since, testCase.till)
+			summary, err := uc.ExpensesSummaryByCategorySince(ctx, userID, testCase.since, testCase.till)
 			require.NoError(t, err)
 			require.Equal(t, testCase.summaryByCategories, summary)
 		})

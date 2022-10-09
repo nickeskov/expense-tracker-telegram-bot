@@ -1,6 +1,7 @@
 package tg
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strconv"
@@ -59,7 +60,6 @@ func newWithOfflineOption(token string, uc expense.UseCase, opts Options, offlin
 		uc:     uc,
 		logger: logger,
 	}
-	client.initHandlers()
 	return client, nil
 }
 
@@ -90,10 +90,10 @@ func requireArgsCountMiddleware(minArgsCount, maxArgsCount int) telebot.Middlewa
 	}
 }
 
-func (c *Client) initHandlers() {
-	wrap := func(handler func(reducedCtx telebotReducedContext) error) func(telebot.Context) error {
+func (c *Client) initHandlers(ctx context.Context) {
+	wrap := func(handler func(_ context.Context, reducedCtx telebotReducedContext) error) func(telebot.Context) error {
 		return func(teleCtx telebot.Context) error {
-			return handler(teleCtx)
+			return handler(ctx, teleCtx)
 		}
 	}
 	c.bot.Handle("/start", func(teleCtx telebot.Context) error {
@@ -122,7 +122,7 @@ type telebotReducedContext interface {
 
 const dateLayout = "2006.01.02"
 
-func (c *Client) handleExpenseCmd(teleCtx telebotReducedContext) error {
+func (c *Client) handleExpenseCmd(ctx context.Context, teleCtx telebotReducedContext) error {
 	args := teleCtx.Args()
 	if len(args) < 3 {
 		return errors.New("not enough arguments to create expense")
@@ -146,13 +146,13 @@ func (c *Client) handleExpenseCmd(teleCtx telebotReducedContext) error {
 		Comment:  comment,
 	}
 	userID := models.UserID(teleMsg.Sender.ID)
-	if _, err := c.uc.AddExpense(userID, exp); err != nil {
+	if _, err := c.uc.AddExpense(ctx, userID, exp); err != nil {
 		return errors.Wrapf(err, "failed to create expense for userID=%d", userID)
 	}
 	return teleCtx.Send("Expense successfully created")
 }
 
-func (c *Client) handleExpensesReportCmd(teleCtx telebotReducedContext) error {
+func (c *Client) handleExpensesReportCmd(ctx context.Context, teleCtx telebotReducedContext) error {
 	args := teleCtx.Args()
 	if len(args) < 2 {
 		return errors.New("not enough arguments to create expenses report")
@@ -167,7 +167,7 @@ func (c *Client) handleExpensesReportCmd(teleCtx telebotReducedContext) error {
 		return teleCtx.Send(fmt.Sprint("Failed to parse till date:", err))
 	}
 	userID := models.UserID(teleCtx.Message().Sender.ID)
-	report, err := c.uc.ExpensesSummaryByCategorySince(userID, since, till)
+	report, err := c.uc.ExpensesSummaryByCategorySince(ctx, userID, since, till)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create expenses report for userID=%d", userID)
 	}
@@ -180,7 +180,7 @@ func printExpense(exp models.Expense) string {
 	return fmt.Sprintf("%s %f %s %s", exp.Category, exp.Amount, exp.Date.Format(dateLayout), exp.Comment)
 }
 
-func (c *Client) handleExpensesListCmd(teleCtx telebotReducedContext) error {
+func (c *Client) handleExpensesListCmd(ctx context.Context, teleCtx telebotReducedContext) error {
 	args := teleCtx.Args()
 	if len(args) < 2 {
 		return errors.New("not enough arguments to create expenses list")
@@ -195,7 +195,7 @@ func (c *Client) handleExpensesListCmd(teleCtx telebotReducedContext) error {
 		return teleCtx.Send(fmt.Sprint("Failed to parse till date:", err))
 	}
 	userID := models.UserID(teleCtx.Message().Sender.ID)
-	expenses, err := c.uc.ExpensesAscendSinceTill(userID, since, till, maxExpensesList)
+	expenses, err := c.uc.ExpensesAscendSinceTill(ctx, userID, since, till, maxExpensesList)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create expenses report for userID=%d", userID)
 	}
@@ -208,7 +208,8 @@ func (c *Client) handleExpensesListCmd(teleCtx telebotReducedContext) error {
 	return nil
 }
 
-func (c *Client) Start() {
+func (c *Client) Start(ctx context.Context) {
+	c.initHandlers(ctx)
 	c.bot.Start()
 }
 

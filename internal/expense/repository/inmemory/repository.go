@@ -1,6 +1,7 @@
 package inmemory
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -72,7 +73,7 @@ func (r *Repository) getOrInitUserExpenses(userID models.UserID) *userExpenses {
 	return expenses
 }
 
-func (r *Repository) AddExpense(userID models.UserID, expense models.Expense) (models.Expense, error) {
+func (r *Repository) AddExpense(ctx context.Context, userID models.UserID, expense models.Expense) (models.Expense, error) {
 	expenses := r.getOrInitUserExpenses(userID)
 	expenses.Lock()
 	defer expenses.Unlock()
@@ -88,7 +89,7 @@ func (r *Repository) AddExpense(userID models.UserID, expense models.Expense) (m
 	return expense, nil
 }
 
-func (r *Repository) GetExpense(userID models.UserID, expenseID models.ExpenseID) (models.Expense, error) {
+func (r *Repository) GetExpense(ctx context.Context, userID models.UserID, expenseID models.ExpenseID) (models.Expense, error) {
 	expenses := r.getOrInitUserExpenses(userID)
 	expenses.Lock()
 	defer expenses.Unlock()
@@ -100,7 +101,7 @@ func (r *Repository) GetExpense(userID models.UserID, expenseID models.ExpenseID
 	return *e, nil
 }
 
-func (r *Repository) ExpensesByDate(userID models.UserID, date time.Time) ([]models.Expense, error) {
+func (r *Repository) ExpensesByDate(ctx context.Context, userID models.UserID, date time.Time) ([]models.Expense, error) {
 	expenses := r.getOrInitUserExpenses(userID)
 	expenses.Lock()
 	defer expenses.Unlock()
@@ -113,6 +114,7 @@ func (r *Repository) ExpensesByDate(userID models.UserID, date time.Time) ([]mod
 }
 
 func (r *Repository) ExpensesAscendSinceTill(
+	ctx context.Context,
 	userID models.UserID,
 	since, till time.Time,
 	iter func(expense *models.Expense) bool,

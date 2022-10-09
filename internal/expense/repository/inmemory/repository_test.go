@@ -1,6 +1,7 @@
 package inmemory
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ func newRepo(t *testing.T) *Repository {
 
 func Test_ExpenseRoundTrip(t *testing.T) {
 	const userID = models.UserID(10)
+	ctx := context.Background()
 
 	r := newRepo(t)
 	expected := models.Expense{
@@ -29,14 +31,14 @@ func Test_ExpenseRoundTrip(t *testing.T) {
 		Date:     time.Now(),
 		Comment:  "test comment",
 	}
-	_, err := r.AddExpense(userID, expected)
+	_, err := r.AddExpense(ctx, userID, expected)
 	require.NoError(t, err)
 
-	actual, err := r.GetExpense(userID, expected.ID)
+	actual, err := r.GetExpense(ctx, userID, expected.ID)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 
-	expensesByDate, err := r.ExpensesByDate(userID, expected.Date)
+	expensesByDate, err := r.ExpensesByDate(ctx, userID, expected.Date)
 	require.NoError(t, err)
 	require.Len(t, expensesByDate, 1)
 	require.Equal(t, expected, expensesByDate[0])
@@ -98,14 +100,15 @@ func TestRepository_ExpensesAscendSinceTill(t *testing.T) {
 	}
 	for i, test := range tests {
 		testCase := test
+		ctx := context.Background()
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
 			r := newRepo(t)
 			for _, expense := range testCase.expenses {
-				_, err := r.AddExpense(userID, expense)
+				_, err := r.AddExpense(ctx, userID, expense)
 				require.NoError(t, err)
 			}
 			var actualExpenses []models.Expense
-			err := r.ExpensesAscendSinceTill(userID, testCase.since, testCase.till, func(e *models.Expense) bool {
+			err := r.ExpensesAscendSinceTill(ctx, userID, testCase.since, testCase.till, func(e *models.Expense) bool {
 				actualExpenses = append(actualExpenses, *e)
 				return true
 			})
