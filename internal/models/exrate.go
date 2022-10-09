@@ -13,3 +13,11 @@ type ExchangeRate struct {
 	Rate float64
 	Date time.Time
 }
+
+func NewExchangeRate(code CurrencyCode, value float64, date time.Time) ExchangeRate {
+	return ExchangeRate{
+		Code: code,
+		Rate: value,
+		Date: date,
+	}
+}
