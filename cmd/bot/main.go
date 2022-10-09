@@ -27,11 +27,6 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create expenses repository:", err)
 	}
-	defer func() {
-		if err := repo.Close(); err != nil {
-			log.Println("Failed to close expenses repository:", err)
-		}
-	}()
 	useCase, err := expenseUseCase.New(repo)
 	if err != nil {
 		log.Fatal("Failed to create expenses usecase:", err)

@@ -151,7 +151,3 @@ func (r *Repository) ExpensesAscendSinceTill(
 	}
 	return nil
 }
-
-func (r *Repository) Close() error {
-	return nil // no-op
-}

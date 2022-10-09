@@ -13,9 +13,6 @@ import (
 func newRepo(t *testing.T) *Repository {
 	r, err := New()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, r.Close())
-	})
 	return r
 }
 

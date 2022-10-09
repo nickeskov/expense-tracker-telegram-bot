@@ -17,9 +17,6 @@ func newUC(t *testing.T) *UseCase {
 	require.NoError(t, err)
 	uc, err := New(repo)
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, repo.Close())
-	})
 	return uc
 }
 
