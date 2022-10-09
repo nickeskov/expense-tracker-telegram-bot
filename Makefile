@@ -24,6 +24,7 @@ generate: install-mockgen
 	${MOCKGEN} -source=internal/clients/tg/tgclient.go -destination=internal/mocks/clients/tg.go
 	#${MOCKGEN} -source=internal/user/repository.go -destination=internal/mocks/user/repository.go #unused for now
 	#${MOCKGEN} -source=internal/user/usecase.go -destination=internal/mocks/user/usecase.go #unused for now
+	#${MOCKGEN} -source=internal/exrate/repository.go -destination=internal/mocks/exrate/repository.go #unused for now
 
 lint: install-lint
 	${LINTBIN} run
