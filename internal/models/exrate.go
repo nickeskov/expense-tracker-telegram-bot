@@ -21,3 +21,14 @@ func NewExchangeRate(code CurrencyCode, value float64, date time.Time) ExchangeR
 		Date: date,
 	}
 }
+
+func (e *ExchangeRate) ConvertFromBase(amountInBaseCurrency float64) float64 {
+	amount := amountInBaseCurrency * e.Rate
+	return amount
+}
+
+func (e *ExchangeRate) ConvertToBase(amountInSelectedCurrency float64) float64 {
+	reverseRate := 1.0 / e.Rate
+	amount := reverseRate * amountInSelectedCurrency
+	return amount
+}

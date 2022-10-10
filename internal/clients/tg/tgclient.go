@@ -17,10 +17,11 @@ import (
 )
 
 type Client struct {
-	bot    *telebot.Bot
-	expUC  expense.UseCase
-	userUC user.UseCase
-	logger *log.Logger
+	bot      *telebot.Bot
+	baseCurr models.CurrencyCode
+	expUC    expense.UseCase
+	userUC   user.UseCase
+	logger   *log.Logger
 }
 
 type Options struct {
@@ -30,11 +31,11 @@ type Options struct {
 	WhiteList  []int64
 }
 
-func NewWithOptions(token string, expUC expense.UseCase, userUC user.UseCase, opts Options) (*Client, error) {
-	return newWithOfflineOption(token, expUC, userUC, opts, false)
+func NewWithOptions(token string, baseCurr models.CurrencyCode, expUC expense.UseCase, userUC user.UseCase, opts Options) (*Client, error) {
+	return newWithOfflineOption(token, baseCurr, expUC, userUC, opts, false)
 }
 
-func newWithOfflineOption(token string, expUC expense.UseCase, userUC user.UseCase, opts Options, offline bool) (*Client, error) {
+func newWithOfflineOption(token string, baseCurr models.CurrencyCode, expUC expense.UseCase, userUC user.UseCase, opts Options, offline bool) (*Client, error) {
 	pref := telebot.Settings{
 		Token:   token,
 		Poller:  &telebot.LongPoller{Timeout: 5 * time.Second},
@@ -58,10 +59,11 @@ func newWithOfflineOption(token string, expUC expense.UseCase, userUC user.UseCa
 		bot.Use(middleware.Blacklist(opts.BlackList...))
 	}
 	client := &Client{
-		bot:    bot,
-		expUC:  expUC,
-		userUC: userUC,
-		logger: logger,
+		bot:      bot,
+		baseCurr: baseCurr,
+		expUC:    expUC,
+		userUC:   userUC,
+		logger:   logger,
 	}
 	return client, nil
 }
@@ -211,12 +213,9 @@ func (c *Client) handleExpensesListCmd(ctx context.Context, teleCtx telebotReduc
 	return nil
 }
 
-// TODO: rid of it and fetch data from config
-const defaultCurrencyStub = "RUB"
-
 func (c *Client) handleStartCmd(ctx context.Context, teleCtx telebotReducedContext) error {
 	userID := models.UserID(teleCtx.Message().Sender.ID)
-	u := models.NewUser(userID, defaultCurrencyStub)
+	u := models.NewUser(userID, c.baseCurr)
 	exists, err := c.userUC.IsUserExists(ctx, userID)
 	if err != nil {
 		return errors.Wrapf(err, "failed to check whether user with ID=%d exists or not", userID)
