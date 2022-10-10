@@ -19,7 +19,7 @@ import (
 )
 
 func newClient(ctx context.Context, t *testing.T, expUC expense.UseCase, userUC user.UseCase) *Client {
-	cl, err := newWithOfflineOption("stub", "stub", expUC, userUC, Options{}, true)
+	cl, err := NewWithOptions("stub", "stub", []models.CurrencyCode{"stub"}, expUC, userUC, Options{offline: true})
 	require.NoError(t, err)
 	go cl.Start(ctx)
 	t.Cleanup(cl.Stop)

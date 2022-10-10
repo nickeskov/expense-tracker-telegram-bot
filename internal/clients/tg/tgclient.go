@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -17,11 +18,13 @@ import (
 )
 
 type Client struct {
-	bot      *telebot.Bot
-	baseCurr models.CurrencyCode
-	expUC    expense.UseCase
-	userUC   user.UseCase
-	logger   *log.Logger
+	bot                *telebot.Bot
+	baseCurr           models.CurrencyCode
+	supportedCurr      map[models.CurrencyCode]struct{}
+	supportedCurrSlice []models.CurrencyCode
+	expUC              expense.UseCase
+	userUC             user.UseCase
+	logger             *log.Logger
 }
 
 type Options struct {
@@ -29,17 +32,19 @@ type Options struct {
 	LogUpdates bool
 	BlackList  []int64
 	WhiteList  []int64
+	offline    bool
 }
 
-func NewWithOptions(token string, baseCurr models.CurrencyCode, expUC expense.UseCase, userUC user.UseCase, opts Options) (*Client, error) {
-	return newWithOfflineOption(token, baseCurr, expUC, userUC, opts, false)
-}
-
-func newWithOfflineOption(token string, baseCurr models.CurrencyCode, expUC expense.UseCase, userUC user.UseCase, opts Options, offline bool) (*Client, error) {
+func NewWithOptions(
+	token string,
+	baseCurr models.CurrencyCode, supported []models.CurrencyCode,
+	expUC expense.UseCase, userUC user.UseCase,
+	opts Options,
+) (*Client, error) {
 	pref := telebot.Settings{
 		Token:   token,
 		Poller:  &telebot.LongPoller{Timeout: 5 * time.Second},
-		Offline: offline, // used for testing purposes
+		Offline: opts.offline, // used for testing purposes
 	}
 	bot, err := telebot.NewBot(pref)
 	if err != nil {
@@ -58,12 +63,26 @@ func newWithOfflineOption(token string, baseCurr models.CurrencyCode, expUC expe
 	if len(opts.BlackList) != 0 {
 		bot.Use(middleware.Blacklist(opts.BlackList...))
 	}
+	supportedCurr := make(map[models.CurrencyCode]struct{})
+	for _, code := range supported {
+		supportedCurr[code] = struct{}{}
+	}
+	supportedCurr[baseCurr] = struct{}{}
+	supported = supported[:0]
+	for code := range supportedCurr {
+		supported = append(supported, code)
+	}
+	sort.Slice(supported, func(i, j int) bool {
+		return supported[i] < supported[j]
+	})
 	client := &Client{
-		bot:      bot,
-		baseCurr: baseCurr,
-		expUC:    expUC,
-		userUC:   userUC,
-		logger:   logger,
+		bot:                bot,
+		baseCurr:           baseCurr,
+		supportedCurr:      supportedCurr,
+		supportedCurrSlice: supported,
+		expUC:              expUC,
+		userUC:             userUC,
+		logger:             logger,
 	}
 	return client, nil
 }
@@ -72,11 +91,13 @@ const (
 	helloMsg           = "Hello!"
 	startAlreadyWeKnow = "We already know each other ;)"
 	startNowWeKnow     = "Hello! Now we know each other!"
-	helpMsg            = "List of supported commands:\n" +
-		"/start - sends hello\n" +
-		"/hello - sends hello\n" +
-		"/help - prints this help\n" +
-		"/expense - creates new expense. Usage: /expense <category - one word> <amount - float> <date - format 'yyyy.mm.dd'> <comment, optional>\n" +
+	helpMsg            = "" +
+		"List of supported commands:\n" +
+		"/start - send hello and register new user with default selected currency\n" +
+		"/hello - send hello\n" +
+		"/help - print this help\n" +
+		"/currency - show selected currency or change it to the new one. Usage: /category <currency - optional>\n" +
+		"/expense - create new expense. Usage: /expense <category - one word> <amount - float> <date - format 'yyyy.mm.dd'> <comment, optional>\n" +
 		"/report - summary report by categories since and till some dates. Usage: /report <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n" +
 		"/list - list expenses since and till some dates. Usage: /list <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n"
 )
@@ -110,6 +131,7 @@ func (c *Client) initHandlers(ctx context.Context) {
 	c.bot.Handle("/help", func(teleCtx telebot.Context) error {
 		return teleCtx.Send(helpMsg)
 	})
+	c.bot.Handle("/currency", wrap(c.handleCurrencyCmd), requireArgsCountMiddleware(0, 1))
 	c.bot.Handle("/expense", wrap(c.handleExpenseCmd), requireArgsCountMiddleware(3, 258))
 	c.bot.Handle("/report", wrap(c.handleExpensesReportCmd), requireArgsCountMiddleware(2, 2))
 	c.bot.Handle("/list", wrap(c.handleExpensesListCmd), requireArgsCountMiddleware(2, 2))
@@ -227,6 +249,27 @@ func (c *Client) handleStartCmd(ctx context.Context, teleCtx telebotReducedConte
 		return errors.Wrapf(err, "failed to create user with ID=%d if not exist", userID)
 	}
 	return teleCtx.Send(startNowWeKnow)
+}
+
+func (c *Client) handleCurrencyCmd(ctx context.Context, teleCtx telebotReducedContext) error {
+	args := teleCtx.Args()
+	userID := models.UserID(teleCtx.Message().Sender.ID)
+	if len(args) == 0 {
+		curr, err := c.userUC.GetUserCurrency(ctx, userID)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get currency for userID=%d", userID)
+		}
+		return teleCtx.Send(fmt.Sprintf("Your selected currency is %q", curr))
+	}
+	currency := models.CurrencyCode(args[0])
+	if _, ok := c.supportedCurr[currency]; !ok {
+		msg := fmt.Sprintf("Currency %q is not supported. Supported currencies: %v", currency, c.supportedCurrSlice)
+		return teleCtx.Send(msg)
+	}
+	if err := c.userUC.ChangeUserCurrency(ctx, userID, currency); err != nil {
+		return errors.Wrapf(err, "failed to change currency to %q for user with ID=%d)", currency, userID)
+	}
+	return teleCtx.Send(fmt.Sprintf("Currency successfully changed to %q", currency))
 }
 
 func (c *Client) Start(ctx context.Context) {

@@ -22,9 +22,6 @@ var (
 	configPath = flag.String("config", "data/config.yaml", "Path to the config in YAML format.")
 )
 
-// TODO: rid of it and fetch data from config
-const defaultCurrencyStub = "RUB"
-
 func main() {
 	flag.Parse()
 	cfg, err := config.New(*configPath)
@@ -44,34 +41,45 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create exchange rates repository:", err)
 	}
-	// TODO: initialize value
-	var provider providers.ExchangeRatesProvider
-	exrateUC, err := exrateUseCase.New(exrateRepo, provider)
+	exratesProvider, err := providers.NewExchangeRatesWebProvider(cfg.Values().BaseCurrency, cfg.Values().SupportedCurrencies)
+	if err != nil {
+		log.Fatal("Failed to create exchange rates web provider:", err)
+	}
+	exrateUC, err := exrateUseCase.New(exrateRepo, exratesProvider)
 	if err != nil {
 		log.Fatal("Failed to create exchange rates usecase:", err)
 	}
-	// TODO call exrateUC.RunAutoUpdater
 
 	expRepo, err := expenseRepository.New()
 	if err != nil {
 		log.Fatal("Failed to create expenses repository:", err)
 	}
 	// we use userUC and exrateUC here to do some interconnected business logic inside expenseUseCase instance
-	expUC, err := expenseUseCase.New(defaultCurrencyStub, expRepo, userUC, exrateUC)
+	expUC, err := expenseUseCase.New(cfg.Values().BaseCurrency, expRepo, userUC, exrateUC)
 	if err != nil {
 		log.Fatal("Failed to create expenses usecase:", err)
 	}
-	cl, err := tg.NewWithOptions(cfg.Token(), defaultCurrencyStub, expUC, userUC, tg.Options{
+	opts := tg.Options{
 		Logger:     log.Default(),
 		LogUpdates: cfg.Values().LogUpdates,
 		WhiteList:  cfg.Values().WhiteList,
 		BlackList:  cfg.Values().BlackList,
-	})
+	}
+	cl, err := tg.NewWithOptions(cfg.Token(), cfg.Values().BaseCurrency, cfg.Values().SupportedCurrencies, expUC, userUC, opts)
 	if err != nil {
 		log.Fatal("Failed to init bot:", err)
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
+	if interval := cfg.Values().ExchangeRatesUpdateInterval; interval != 0 {
+		providerDone, err := exrateUC.RunAutoUpdater(ctx, log.Default(), interval)
+		if err != nil {
+			log.Fatal("Failed to run exchange rates auto updater:", err)
+		}
+		defer func() {
+			<-providerDone
+		}()
+	}
 	go cl.Start(ctx)
 	log.Println("Bot initialized successfully ans started")
 	<-ctx.Done()
