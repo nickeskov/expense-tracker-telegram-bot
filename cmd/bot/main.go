@@ -9,8 +9,10 @@ import (
 
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/clients/tg"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/config"
-	expenseRepo "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/repository/inmemory"
+	expenseRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/repository/inmemory"
 	expenseUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/usecase"
+	userRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user/repository/inmemory"
+	userUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user/usecase"
 )
 
 var (
@@ -23,15 +25,24 @@ func main() {
 	if err != nil {
 		log.Fatal("Config init failed:", err)
 	}
-	repo, err := expenseRepo.New()
+	expRepo, err := expenseRepository.New()
 	if err != nil {
 		log.Fatal("Failed to create expenses repository:", err)
 	}
-	useCase, err := expenseUseCase.New(repo)
+	expUC, err := expenseUseCase.New(expRepo)
 	if err != nil {
 		log.Fatal("Failed to create expenses usecase:", err)
 	}
-	cl, err := tg.NewWithOptions(cfg.Token(), useCase, tg.Options{
+	userRepo, err := userRepository.New()
+	if err != nil {
+		log.Fatal("Failed to create user repository")
+	}
+	userUC, err := userUseCase.New(userRepo)
+	if err != nil {
+		log.Fatal("Failed to create user usecase:", err)
+	}
+
+	cl, err := tg.NewWithOptions(cfg.Token(), expUC, userUC, tg.Options{
 		Logger:     log.Default(),
 		LogUpdates: cfg.Values().LogUpdates,
 		WhiteList:  cfg.Values().WhiteList,

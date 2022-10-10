@@ -11,13 +11,15 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
+	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user"
 	"gopkg.in/telebot.v3"
 	"gopkg.in/telebot.v3/middleware"
 )
 
 type Client struct {
 	bot    *telebot.Bot
-	uc     expense.UseCase
+	expUC  expense.UseCase
+	userUC user.UseCase
 	logger *log.Logger
 }
 
@@ -28,11 +30,11 @@ type Options struct {
 	WhiteList  []int64
 }
 
-func NewWithOptions(token string, uc expense.UseCase, opts Options) (*Client, error) {
-	return newWithOfflineOption(token, uc, opts, false)
+func NewWithOptions(token string, expUC expense.UseCase, userUC user.UseCase, opts Options) (*Client, error) {
+	return newWithOfflineOption(token, expUC, userUC, opts, false)
 }
 
-func newWithOfflineOption(token string, uc expense.UseCase, opts Options, offline bool) (*Client, error) {
+func newWithOfflineOption(token string, expUC expense.UseCase, userUC user.UseCase, opts Options, offline bool) (*Client, error) {
 	pref := telebot.Settings{
 		Token:   token,
 		Poller:  &telebot.LongPoller{Timeout: 5 * time.Second},
@@ -57,15 +59,18 @@ func newWithOfflineOption(token string, uc expense.UseCase, opts Options, offlin
 	}
 	client := &Client{
 		bot:    bot,
-		uc:     uc,
+		expUC:  expUC,
+		userUC: userUC,
 		logger: logger,
 	}
 	return client, nil
 }
 
 const (
-	helloMsg = "Hello!"
-	helpMsg  = "List of supported commands:\n" +
+	helloMsg           = "Hello!"
+	startAlreadyWeKnow = "We already know each other ;)"
+	startNowWeKnow     = "Hello! Now we know each other!"
+	helpMsg            = "List of supported commands:\n" +
 		"/start - sends hello\n" +
 		"/hello - sends hello\n" +
 		"/help - prints this help\n" +
@@ -96,9 +101,7 @@ func (c *Client) initHandlers(ctx context.Context) {
 			return handler(ctx, teleCtx)
 		}
 	}
-	c.bot.Handle("/start", func(teleCtx telebot.Context) error {
-		return teleCtx.Send(helloMsg)
-	})
+	c.bot.Handle("/start", wrap(c.handleStartCmd), requireArgsCountMiddleware(0, 0))
 	c.bot.Handle("/hello", func(teleCtx telebot.Context) error {
 		return teleCtx.Send(helloMsg)
 	})
@@ -146,7 +149,7 @@ func (c *Client) handleExpenseCmd(ctx context.Context, teleCtx telebotReducedCon
 		Comment:  comment,
 	}
 	userID := models.UserID(teleMsg.Sender.ID)
-	if _, err := c.uc.AddExpense(ctx, userID, exp); err != nil {
+	if _, err := c.expUC.AddExpense(ctx, userID, exp); err != nil {
 		return errors.Wrapf(err, "failed to create expense for userID=%d", userID)
 	}
 	return teleCtx.Send("Expense successfully created")
@@ -167,7 +170,7 @@ func (c *Client) handleExpensesReportCmd(ctx context.Context, teleCtx telebotRed
 		return teleCtx.Send(fmt.Sprint("Failed to parse till date:", err))
 	}
 	userID := models.UserID(teleCtx.Message().Sender.ID)
-	report, err := c.uc.ExpensesSummaryByCategorySince(ctx, userID, since, till)
+	report, err := c.expUC.ExpensesSummaryByCategorySince(ctx, userID, since, till)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create expenses report for userID=%d", userID)
 	}
@@ -195,7 +198,7 @@ func (c *Client) handleExpensesListCmd(ctx context.Context, teleCtx telebotReduc
 		return teleCtx.Send(fmt.Sprint("Failed to parse till date:", err))
 	}
 	userID := models.UserID(teleCtx.Message().Sender.ID)
-	expenses, err := c.uc.ExpensesAscendSinceTill(ctx, userID, since, till, maxExpensesList)
+	expenses, err := c.expUC.ExpensesAscendSinceTill(ctx, userID, since, till, maxExpensesList)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create expenses report for userID=%d", userID)
 	}
@@ -206,6 +209,25 @@ func (c *Client) handleExpensesListCmd(ctx context.Context, teleCtx telebotReduc
 		}
 	}
 	return nil
+}
+
+// TODO: rid of it and fetch data from config
+const defaultCurrencyStub = "RUB"
+
+func (c *Client) handleStartCmd(ctx context.Context, teleCtx telebotReducedContext) error {
+	userID := models.UserID(teleCtx.Message().Sender.ID)
+	u := models.NewUser(userID, defaultCurrencyStub)
+	exists, err := c.userUC.IsUserExists(ctx, userID)
+	if err != nil {
+		return errors.Wrapf(err, "failed to check whether user with ID=%d exists or not", userID)
+	}
+	if exists {
+		return teleCtx.Send(startAlreadyWeKnow)
+	}
+	if _, err := c.userUC.CreateUser(ctx, u); err != nil {
+		return errors.Wrapf(err, "failed to create user with ID=%d if not exist", userID)
+	}
+	return teleCtx.Send(startNowWeKnow)
 }
 
 func (c *Client) Start(ctx context.Context) {

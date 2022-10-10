@@ -22,8 +22,7 @@ generate: install-mockgen
 	#${MOCKGEN} -source=internal/expense/repository.go -destination=internal/mocks/expense/repository.go # unused for now
 	${MOCKGEN} -source=internal/expense/usecase.go -destination=internal/mocks/expense/usecase.go
 	${MOCKGEN} -source=internal/clients/tg/tgclient.go -destination=internal/mocks/clients/tg.go
-	#${MOCKGEN} -source=internal/user/repository.go -destination=internal/mocks/user/repository.go #unused for now
-	#${MOCKGEN} -source=internal/user/usecase.go -destination=internal/mocks/user/usecase.go #unused for now
+	${MOCKGEN} -source=internal/user/user.go -destination=internal/mocks/user/user.go
 	#${MOCKGEN} -source=internal/exrate/repository.go -destination=internal/mocks/exrate/repository.go #unused for now
 	#${MOCKGEN} -source=internal/providers/providers.go -destination=internal/mocks/providers/providers.go #unused for now
 	#${MOCKGEN} -source=internal/exrate/usecase.go -destination=internal/mocks/exrate/usecase.go #unused for now
