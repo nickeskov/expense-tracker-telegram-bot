@@ -18,3 +18,8 @@ type Repository interface {
 	ChangeUserCurrency(ctx context.Context, id models.UserID, currency models.CurrencyCode) error
 	GetUserCurrency(ctx context.Context, id models.UserID) (models.CurrencyCode, error)
 }
+
+type UseCase interface {
+	Repository
+	CreateUserIfNotExists(ctx context.Context, u models.User) error
+}
