@@ -21,5 +21,4 @@ type Repository interface {
 
 type UseCase interface {
 	Repository
-	CreateUserIfNotExists(ctx context.Context, u models.User) error
 }

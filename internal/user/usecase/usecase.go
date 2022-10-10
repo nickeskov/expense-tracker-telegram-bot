@@ -30,15 +30,3 @@ func (u *UseCase) ChangeUserCurrency(ctx context.Context, id models.UserID, curr
 func (u *UseCase) GetUserCurrency(ctx context.Context, id models.UserID) (models.CurrencyCode, error) {
 	return u.repo.GetUserCurrency(ctx, id)
 }
-
-func (u *UseCase) CreateUserIfNotExists(ctx context.Context, um models.User) error {
-	exists, err := u.repo.IsUserExists(ctx, um.ID)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return nil
-	}
-	_, err = u.repo.CreateUser(ctx, um)
-	return err
-}
