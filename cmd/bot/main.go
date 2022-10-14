@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 
+	"github.com/pkg/errors"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/clients/tg"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/config"
 	expenseRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/repository/inmemory"
@@ -22,9 +25,17 @@ var (
 	configPath = flag.String("config", "data/config.yaml", "Path to the config in YAML format.")
 )
 
+func readConfig(path string) (*config.Service, error) {
+	rawYAML, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return nil, errors.Wrap(err, "reading config file")
+	}
+	return config.NewFromReader(bytes.NewReader(rawYAML))
+}
+
 func main() {
 	flag.Parse()
-	cfg, err := config.New(*configPath)
+	cfg, err := readConfig(*configPath)
 	if err != nil {
 		log.Fatal("Config init failed:", err)
 	}

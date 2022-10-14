@@ -1,8 +1,7 @@
 package config
 
 import (
-	"os"
-	"path/filepath"
+	"io"
 	"time"
 
 	"github.com/pkg/errors"
@@ -28,15 +27,10 @@ type Service struct {
 	config config
 }
 
-func New(path string) (*Service, error) {
+func NewFromReader(r io.Reader) (*Service, error) {
 	s := &Service{}
 
-	rawYAML, err := os.ReadFile(filepath.Clean(path))
-	if err != nil {
-		return nil, errors.Wrap(err, "reading config file")
-	}
-
-	err = yaml.Unmarshal(rawYAML, &s.config)
+	err := yaml.NewDecoder(r).Decode(&s.config)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing yaml")
 	}
