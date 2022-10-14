@@ -202,7 +202,11 @@ func (c *Client) handleExpensesReportCmd(ctx context.Context, teleCtx telebotRed
 	if err != nil {
 		return errors.Wrapf(err, "failed to create expenses report for userID=%d", userID)
 	}
-	return teleCtx.Send(report.Text())
+	msg, err := report.Text()
+	if err != nil {
+		return errors.Wrapf(err, "failed to convert expenses report to text message for userID=%d", userID)
+	}
+	return teleCtx.Send(msg)
 }
 
 const maxExpensesList = 100

@@ -13,9 +13,9 @@ import (
 
 type SummaryReport map[models.ExpenseCategory]decimal.Decimal
 
-func (r SummaryReport) Text() string {
+func (r SummaryReport) Text() (string, error) {
 	if len(r) == 0 {
-		return ""
+		return "", nil
 	}
 	sortedKeys := make([]string, 0, len(r))
 	for category := range r {
@@ -27,11 +27,11 @@ func (r SummaryReport) Text() string {
 	for _, key := range sortedKeys {
 		category := models.ExpenseCategory(key)
 		_, err := fmt.Fprintf(sb, "%s=%v\n", category, r[category])
-		if err != nil { // panic here because it's an impossible situation
-			panic(err.Error())
+		if err != nil {
+			return "", err
 		}
 	}
-	return sb.String()
+	return sb.String(), nil
 }
 
 type UseCase interface {

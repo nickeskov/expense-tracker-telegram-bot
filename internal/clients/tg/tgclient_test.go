@@ -84,7 +84,9 @@ func Test_handleExpensesReportCmd(t *testing.T) {
 			"cat2": decimal.NewFromFloat(222.2),
 			"aaa":  decimal.NewFromFloat(333.3),
 		}
+		reportMsg, err = report.Text()
 	)
+	require.NoError(t, err)
 
 	argCall := teleCtxMock.EXPECT().Args().Times(1).Return([]string{since.Format(dateLayout), till.Format(dateLayout)})
 	msgCall := teleCtxMock.EXPECT().Message().Times(1).Return(&telebot.Message{
@@ -93,10 +95,10 @@ func Test_handleExpensesReportCmd(t *testing.T) {
 	}).After(argCall)
 	reportCall := expUCMock.EXPECT().ExpensesSummaryByCategorySince(ctx, models.UserID(userID), since, till).Times(1).
 		Return(report, nil).After(msgCall)
-	teleCtxMock.EXPECT().Send(report.Text()).Times(1).Return(nil).After(reportCall)
+	teleCtxMock.EXPECT().Send(reportMsg).Times(1).Return(nil).After(reportCall)
 
 	cl := newClient(ctx, t, expUCMock, userUCMock)
-	err := cl.handleExpensesReportCmd(ctx, teleCtxMock)
+	err = cl.handleExpensesReportCmd(ctx, teleCtxMock)
 	require.NoError(t, err)
 }
 
