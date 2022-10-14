@@ -49,7 +49,7 @@ func Test_handleExpenseCmd(t *testing.T) {
 			Comment:  comment,
 		}
 	)
-	args := []string{category, fmt.Sprintf("%f", amount), day.Format(dateLayout)}
+	args := []string{category, fmt.Sprintf("%v", amount), day.Format(dateLayout)}
 	args = append(args, strings.Split(comment, " ")...)
 
 	argCall := teleCtxMock.EXPECT().Args().Times(1).Return(args)

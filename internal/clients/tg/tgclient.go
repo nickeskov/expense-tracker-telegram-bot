@@ -204,7 +204,7 @@ func (c *Client) handleExpensesReportCmd(ctx context.Context, teleCtx telebotRed
 const maxExpensesList = 100
 
 func printExpense(exp models.Expense) string {
-	return fmt.Sprintf("%s %f %s %s", exp.Category, exp.Amount, exp.Date.Format(dateLayout), exp.Comment)
+	return fmt.Sprintf("%s %v %s %s", exp.Category, exp.Amount, exp.Date.Format(dateLayout), exp.Comment)
 }
 
 func (c *Client) handleExpensesListCmd(ctx context.Context, teleCtx telebotReducedContext) error {

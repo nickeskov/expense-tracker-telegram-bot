@@ -25,7 +25,7 @@ func (r SummaryReport) Text() string {
 	sb := new(strings.Builder)
 	for _, key := range sortedKeys {
 		category := models.ExpenseCategory(key)
-		_, err := fmt.Fprintf(sb, "%s=%f\n", category, r[category])
+		_, err := fmt.Fprintf(sb, "%s=%v\n", category, r[category])
 		if err != nil { // panic here because it's an impossible situation
 			panic(err.Error())
 		}
