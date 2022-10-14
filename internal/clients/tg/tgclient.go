@@ -96,7 +96,7 @@ const (
 		"/start - send hello and register new user with default selected currency\n" +
 		"/hello - send hello\n" +
 		"/help - print this help\n" +
-		"/currency - show selected currency or change it to the new one. Usage: /category <currency - optional>\n" +
+		"/currency - show selected currency or change it to the new one. Usage: /currency <currency - optional>\n" +
 		"/expense - create new expense. Usage: /expense <category - one word> <amount - float> <date - format 'yyyy.mm.dd'> <comment, optional>\n" +
 		"/report - summary report by categories since and till some dates. Usage: /report <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n" +
 		"/list - list expenses since and till some dates. Usage: /list <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n"
