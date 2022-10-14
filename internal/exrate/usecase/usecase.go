@@ -70,16 +70,11 @@ func (u *UseCase) RunAutoUpdater(ctx context.Context, logger *log.Logger, interv
 		for {
 			select {
 			case tick := <-ticker.C:
-				select {
-				case <-ctx.Done():
-					return
-				default:
-					rates, err := u.fetchAndUpdateRates(ctx, tick.In(time.UTC))
-					if err != nil {
-						logger.Printf("Rates auto updater: %v", err)
-					} else {
-						logger.Printf("Fetched and saved new %d exchange rates", len(rates))
-					}
+				rates, err := u.fetchAndUpdateRates(ctx, tick.In(time.UTC))
+				if err != nil {
+					logger.Printf("Rates auto updater: %v", err)
+				} else {
+					logger.Printf("Fetched and saved new %d exchange rates", len(rates))
 				}
 			case <-ctx.Done():
 				return
