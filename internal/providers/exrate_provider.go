@@ -50,7 +50,7 @@ func (e *ExchangeRatesWebProvider) FetchExchangeRates(ctx context.Context, date 
 	}
 	rates := data.ToExchangeRates(date, func(rate *models.ExchangeRate) bool {
 		_, ok := e.supportedCurrencies[rate.Code]
-		return !ok
+		return ok
 	})
 	return rates, nil
 }
@@ -63,7 +63,7 @@ func (d *dto) ToExchangeRates(date time.Time, filter func(rate *models.ExchangeR
 	var rates []models.ExchangeRate
 	for code, rateValue := range d.Rates {
 		rate := models.NewExchangeRate(code, rateValue, date)
-		if !filter(&rate) {
+		if filter(&rate) {
 			rates = append(rates, rate)
 		}
 	}
