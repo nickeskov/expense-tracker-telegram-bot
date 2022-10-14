@@ -101,6 +101,7 @@ const (
 		"/expense - create new expense. Usage: /expense <category - one word> <amount - float> <date - format 'yyyy.mm.dd'> <comment, optional>\n" +
 		"/report - summary report by categories since and till some dates. Usage: /report <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n" +
 		"/list - list expenses since and till some dates. Usage: /list <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n"
+	onTextDefaultMsg = "Unsupported action or command\n\n" + helpMsg
 )
 
 func createRequireArgsCountMiddleware(minArgsCount, maxArgsCount int) telebot.MiddlewareFunc {
@@ -155,8 +156,7 @@ func (c *Client) initHandlers(ctx context.Context) {
 	c.bot.Handle("/report", wrap(c.handleExpensesReportCmd), checkUser, createRequireArgsCountMiddleware(2, 2))
 	c.bot.Handle("/list", wrap(c.handleExpensesListCmd), checkUser, createRequireArgsCountMiddleware(2, 2))
 	c.bot.Handle(telebot.OnText, func(teleCtx telebot.Context) error {
-		msg := "Unsupported action or command\n\n" + helpMsg
-		return teleCtx.Send(msg)
+		return teleCtx.Send(onTextDefaultMsg)
 	})
 }
 
