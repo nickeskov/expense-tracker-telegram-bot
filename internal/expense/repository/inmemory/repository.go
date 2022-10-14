@@ -11,7 +11,7 @@ import (
 )
 
 type Repository struct {
-	mu           *sync.Mutex
+	mu           *sync.RWMutex
 	userExpenses map[models.UserID]*userExpenses
 }
 type expensesAtOneDate struct {
@@ -57,24 +57,40 @@ func newUserExpensesByDate(btreeDegree int) *userExpenses {
 
 func New() (*Repository, error) {
 	return &Repository{
-		mu:           &sync.Mutex{},
+		mu:           &sync.RWMutex{},
 		userExpenses: map[models.UserID]*userExpenses{},
 	}, nil
 }
 
-func (r *Repository) getOrInitUserExpenses(userID models.UserID) *userExpenses {
+func (r *Repository) tryGetUserExpenses(userID models.UserID) (*userExpenses, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	expenses, ok := r.userExpenses[userID]
+	return expenses, ok
+}
+
+func (r *Repository) tryInitUserExpenses(userID models.UserID) *userExpenses {
+	newExpenses := newUserExpensesByDate(newUserExpensesByDateBTreeDegree)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	expenses, ok := r.userExpenses[userID]
 	if !ok {
-		expenses = newUserExpensesByDate(newUserExpensesByDateBTreeDegree)
-		r.userExpenses[userID] = expenses
+		r.userExpenses[userID] = newExpenses
+		expenses = newExpenses
+	}
+	return expenses
+}
+
+func (r *Repository) getUserExpenses(userID models.UserID) *userExpenses {
+	expenses, ok := r.tryGetUserExpenses(userID)
+	if !ok {
+		expenses = r.tryInitUserExpenses(userID)
 	}
 	return expenses
 }
 
 func (r *Repository) AddExpense(ctx context.Context, userID models.UserID, expense models.Expense) (models.Expense, error) {
-	expenses := r.getOrInitUserExpenses(userID)
+	expenses := r.getUserExpenses(userID)
 	expenses.Lock()
 	defer expenses.Unlock()
 
@@ -90,7 +106,7 @@ func (r *Repository) AddExpense(ctx context.Context, userID models.UserID, expen
 }
 
 func (r *Repository) GetExpense(ctx context.Context, userID models.UserID, expenseID models.ExpenseID) (models.Expense, error) {
-	expenses := r.getOrInitUserExpenses(userID)
+	expenses := r.getUserExpenses(userID)
 	expenses.Lock()
 	defer expenses.Unlock()
 
@@ -101,8 +117,8 @@ func (r *Repository) GetExpense(ctx context.Context, userID models.UserID, expen
 	return *e, nil
 }
 
-func (r *Repository) ExpensesByDate(ctx context.Context, userID models.UserID, date time.Time) ([]models.Expense, error) {
-	expenses := r.getOrInitUserExpenses(userID)
+func (r *Repository) GetExpensesByDate(ctx context.Context, userID models.UserID, date time.Time) ([]models.Expense, error) {
+	expenses := r.getUserExpenses(userID)
 	expenses.Lock()
 	defer expenses.Unlock()
 
@@ -113,13 +129,13 @@ func (r *Repository) ExpensesByDate(ctx context.Context, userID models.UserID, d
 	return expensesAtOneDay.cloneExpenses(), nil
 }
 
-func (r *Repository) ExpensesAscendSinceTill(
+func (r *Repository) GetExpensesAscendSinceTill(
 	ctx context.Context,
 	userID models.UserID,
 	since, till time.Time,
 	iter func(expense *models.Expense) bool,
 ) error {
-	expenses := r.getOrInitUserExpenses(userID)
+	expenses := r.getUserExpenses(userID)
 	expenses.Lock()
 	defer expenses.Unlock()
 

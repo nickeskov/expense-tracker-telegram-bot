@@ -7,14 +7,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 )
 
-type SummaryReport map[models.ExpenseCategory]float64
+type SummaryReport map[models.ExpenseCategory]decimal.Decimal
 
-func (r SummaryReport) Text() string {
+func (r SummaryReport) Text() (string, error) {
 	if len(r) == 0 {
-		return ""
+		return "", nil
 	}
 	sortedKeys := make([]string, 0, len(r))
 	for category := range r {
@@ -25,16 +26,16 @@ func (r SummaryReport) Text() string {
 	sb := new(strings.Builder)
 	for _, key := range sortedKeys {
 		category := models.ExpenseCategory(key)
-		_, err := fmt.Fprintf(sb, "%s=%f\n", category, r[category])
-		if err != nil { // panic here because it's an impossible situation
-			panic(err.Error())
+		_, err := fmt.Fprintf(sb, "%s=%v\n", category, r[category])
+		if err != nil {
+			return "", err
 		}
 	}
-	return sb.String()
+	return sb.String(), nil
 }
 
 type UseCase interface {
 	AddExpense(ctx context.Context, userID models.UserID, expense models.Expense) (models.Expense, error)
-	ExpensesSummaryByCategorySince(ctx context.Context, userID models.UserID, since, till time.Time) (SummaryReport, error)
-	ExpensesAscendSinceTill(ctx context.Context, userID models.UserID, since, till time.Time, max int) ([]models.Expense, error)
+	GetExpensesSummaryByCategorySince(ctx context.Context, userID models.UserID, since, till time.Time) (SummaryReport, error)
+	GetExpensesAscendSinceTill(ctx context.Context, userID models.UserID, since, till time.Time, max int) ([]models.Expense, error)
 }
