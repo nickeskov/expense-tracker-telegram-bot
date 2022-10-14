@@ -16,3 +16,8 @@ type Repository interface {
 	GetRate(ctx context.Context, curr models.CurrencyCode, date time.Time) (models.ExchangeRate, error)
 	AddOrUpdateRates(ctx context.Context, rates ...models.ExchangeRate) error
 }
+
+type UseCase interface {
+	Repository
+	RunAutoUpdater(ctx context.Context, interval time.Duration) (chan<- struct{}, error)
+}
