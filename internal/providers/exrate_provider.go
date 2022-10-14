@@ -55,11 +55,11 @@ func (e *ExchangeRatesWebProvider) FetchExchangeRates(ctx context.Context, date 
 	return rates, nil
 }
 
-type dto struct {
+type exchangeRatesData struct {
 	Rates map[models.CurrencyCode]decimal.Decimal `json:"rates"`
 }
 
-func (d *dto) ToExchangeRates(date time.Time, filter func(rate *models.ExchangeRate) bool) []models.ExchangeRate {
+func (d *exchangeRatesData) ToExchangeRates(date time.Time, filter func(rate *models.ExchangeRate) bool) []models.ExchangeRate {
 	var rates []models.ExchangeRate
 	for code, rateValue := range d.Rates {
 		rate := models.NewExchangeRate(code, rateValue, date)
@@ -74,7 +74,7 @@ func makeExchangeRatesURL(baseURL string, date time.Time, base models.CurrencyCo
 	return fmt.Sprintf("%s/%s?base=%s", strings.TrimSuffix(baseURL, "/"), date.Format(fetchByDateLayout), base)
 }
 
-func (e *ExchangeRatesWebProvider) fetchData(ctx context.Context, date time.Time) (dto, error) {
+func (e *ExchangeRatesWebProvider) fetchData(ctx context.Context, date time.Time) (exchangeRatesData, error) {
 	ctx, cancel := context.WithTimeout(ctx, defaultFetchRequestTimeout)
 	defer cancel()
 
@@ -84,22 +84,22 @@ func (e *ExchangeRatesWebProvider) fetchData(ctx context.Context, date time.Time
 	)
 	req, err := http.NewRequestWithContext(ctx, method, apiURL, nil)
 	if err != nil {
-		return dto{}, errors.Wrapf(err, "failed to build HTTP %q request to %q", method, apiURL)
+		return exchangeRatesData{}, errors.Wrapf(err, "failed to build HTTP %q request to %q", method, apiURL)
 	}
 
 	resp, err := e.client.Do(req)
 	if err != nil {
-		return dto{}, errors.Wrapf(err, "failed to do HTTP %q request to %q", method, apiURL)
+		return exchangeRatesData{}, errors.Wrapf(err, "failed to do HTTP %q request to %q", method, apiURL)
 	}
 	defer resp.Body.Close()
 
 	if c := resp.StatusCode; c != http.StatusOK {
-		return dto{}, errors.Wrapf(err, "HTTP %q endpoint %q returned non-OK code (%d)", method, apiURL, c)
+		return exchangeRatesData{}, errors.Wrapf(err, "HTTP %q endpoint %q returned non-OK code (%d)", method, apiURL, c)
 	}
 
-	var data dto
+	var data exchangeRatesData
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return dto{}, errors.Wrap(err, "failed to decode response as JSON")
+		return exchangeRatesData{}, errors.Wrap(err, "failed to decode response as JSON")
 	}
 	return data, nil
 }
