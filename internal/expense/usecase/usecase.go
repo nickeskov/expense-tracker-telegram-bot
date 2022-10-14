@@ -40,7 +40,8 @@ func (u *UseCase) AddExpense(ctx context.Context, userID models.UserID, expense 
 func (u *UseCase) ExpensesSummaryByCategorySince(ctx context.Context, userID models.UserID, since, till time.Time) (expense.SummaryReport, error) {
 	out := make(expense.SummaryReport)
 	err := u.handleExpensesAscendSinceTill(ctx, userID, since, till, func(expense *models.Expense) bool {
-		out[expense.Category] += +expense.Amount
+		categoryAmount := out[expense.Category]
+		out[expense.Category] = categoryAmount.Add(expense.Amount)
 		return true
 	})
 	if err != nil {

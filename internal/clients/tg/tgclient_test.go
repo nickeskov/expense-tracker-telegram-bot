@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense"
 	clMock "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/mocks/clients"
@@ -39,7 +40,7 @@ func Test_handleExpenseCmd(t *testing.T) {
 		messageID   = 22
 		comment     = "     sdf f fds"
 		category    = "test"
-		amount      = 111.1
+		amount      = decimal.NewFromFloat(111.1)
 		day         = time.Date(2022, time.October, 3, 0, 0, 0, 0, time.UTC)
 		expectedExp = models.Expense{
 			ID:       models.ExpenseID(messageID),
@@ -76,9 +77,13 @@ func Test_handleExpensesReportCmd(t *testing.T) {
 	var (
 		userID    = 11
 		messageID = 22
-		report    = expense.SummaryReport{"cat1": 111.1, "cat2": 222.2, "aaa": 333.3}
 		since     = time.Date(2022, time.October, 3, 0, 0, 0, 0, time.UTC)
 		till      = time.Date(2022, time.October, 4, 0, 0, 0, 0, time.UTC)
+		report    = expense.SummaryReport{
+			"cat1": decimal.NewFromFloat(111.1),
+			"cat2": decimal.NewFromFloat(222.2),
+			"aaa":  decimal.NewFromFloat(333.3),
+		}
 	)
 
 	argCall := teleCtxMock.EXPECT().Args().Times(1).Return([]string{since.Format(dateLayout), till.Format(dateLayout)})
@@ -111,7 +116,7 @@ func Test_handleExpensesListCmd(t *testing.T) {
 		till        = time.Date(2022, time.October, 4, 0, 0, 0, 0, time.UTC)
 		comment     = "     sdf f fds"
 		category    = "test"
-		amount      = 111.1
+		amount      = decimal.NewFromFloat(111.1)
 		day         = time.Date(2022, time.October, 3, 0, 0, 0, 0, time.UTC)
 		expectedExp = models.Expense{
 			ID:       models.ExpenseID(messageID),

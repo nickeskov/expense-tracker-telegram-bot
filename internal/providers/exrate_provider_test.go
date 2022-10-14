@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
@@ -73,9 +74,9 @@ func TestExchangeRatesWebProvider_FetchExchangeRates(t *testing.T) {
 		supported = []models.CurrencyCode{"EUR", "USD", "TRY"}
 		date      = time.Date(2022, 10, 9, 0, 0, 0, 0, time.UTC)
 		expected  = []models.ExchangeRate{
-			{Code: "USD", Rate: 0.016044, Date: date},
-			{Code: "EUR", Rate: 0.01648, Date: date},
-			{Code: "TRY", Rate: 0.298886, Date: date},
+			{Code: "USD", Rate: decimal.NewFromFloat(0.016044), Date: date},
+			{Code: "EUR", Rate: decimal.NewFromFloat(0.01648), Date: date},
+			{Code: "TRY", Rate: decimal.NewFromFloat(0.298886), Date: date},
 		}
 	)
 	s := newAPIMock(t, base, date)

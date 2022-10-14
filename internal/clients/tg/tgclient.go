@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user"
@@ -155,15 +155,19 @@ func (c *Client) handleExpenseCmd(ctx context.Context, teleCtx telebotReducedCon
 		return errors.New("not enough arguments to create expense")
 	}
 	category, strAmount, date, commentWords := args[0], args[1], args[2], args[3:]
-	amount, err := strconv.ParseFloat(strAmount, 64)
+
+	amount, err := decimal.NewFromString(strAmount)
 	if err != nil {
 		return teleCtx.Send(fmt.Sprint("Failed to parse amount:", err))
 	}
+
 	day, err := time.Parse(dateLayout, date)
 	if err != nil {
 		return teleCtx.Send(fmt.Sprint("Failed to parse date:", err))
 	}
+
 	comment := strings.Join(commentWords, " ")
+
 	teleMsg := teleCtx.Message()
 	exp := models.Expense{
 		ID:       models.ExpenseID(teleMsg.ID),

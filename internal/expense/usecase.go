@@ -7,10 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 )
 
-type SummaryReport map[models.ExpenseCategory]float64
+type SummaryReport map[models.ExpenseCategory]decimal.Decimal
 
 func (r SummaryReport) Text() string {
 	if len(r) == 0 {

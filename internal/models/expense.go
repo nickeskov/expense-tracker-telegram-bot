@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/shopspring/decimal"
+)
 
 type (
 	ExpenseID       int64
@@ -10,7 +14,7 @@ type (
 type Expense struct {
 	ID       ExpenseID
 	Category ExpenseCategory
-	Amount   float64
+	Amount   decimal.Decimal
 	Date     time.Time
 	Comment  string
 }

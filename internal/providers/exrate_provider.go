@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 )
 
@@ -55,7 +56,7 @@ func (e *ExchangeRatesWebProvider) FetchExchangeRates(ctx context.Context, date 
 }
 
 type dto struct {
-	Rates map[models.CurrencyCode]float64 `json:"rates"`
+	Rates map[models.CurrencyCode]decimal.Decimal `json:"rates"`
 }
 
 func (d *dto) ToExchangeRates(date time.Time, filter func(rate *models.ExchangeRate) bool) []models.ExchangeRate {

@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/shopspring/decimal"
+)
 
 type (
 	CurrencyCode   string
@@ -10,11 +14,11 @@ type (
 type ExchangeRate struct {
 	ID   ExchangeRageID
 	Code CurrencyCode
-	Rate float64
+	Rate decimal.Decimal
 	Date time.Time
 }
 
-func NewExchangeRate(code CurrencyCode, value float64, date time.Time) ExchangeRate {
+func NewExchangeRate(code CurrencyCode, value decimal.Decimal, date time.Time) ExchangeRate {
 	return ExchangeRate{
 		Code: code,
 		Rate: value,
@@ -22,13 +26,13 @@ func NewExchangeRate(code CurrencyCode, value float64, date time.Time) ExchangeR
 	}
 }
 
-func (e *ExchangeRate) ConvertFromBase(amountInBaseCurrency float64) float64 {
-	amount := amountInBaseCurrency * e.Rate
+func (e *ExchangeRate) ConvertFromBase(amountInBaseCurrency decimal.Decimal) decimal.Decimal {
+	amount := amountInBaseCurrency.Mul(e.Rate)
 	return amount
 }
 
-func (e *ExchangeRate) ConvertToBase(amountInSelectedCurrency float64) float64 {
-	reverseRate := 1.0 / e.Rate
-	amount := reverseRate * amountInSelectedCurrency
+func (e *ExchangeRate) ConvertToBase(amountInSelectedCurrency decimal.Decimal) decimal.Decimal {
+	reverseRate := decimal.NewFromInt(1).Div(e.Rate)
+	amount := reverseRate.Mul(amountInSelectedCurrency)
 	return amount
 }

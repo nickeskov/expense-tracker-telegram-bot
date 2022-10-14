@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 )
@@ -24,7 +25,7 @@ func Test_ExpenseRoundTrip(t *testing.T) {
 	expected := models.Expense{
 		ID:       1,
 		Category: "test",
-		Amount:   42,
+		Amount:   decimal.NewFromInt(42),
 		Date:     time.Now(),
 		Comment:  "test comment",
 	}
@@ -50,21 +51,21 @@ func TestRepository_ExpensesAscendSinceTill(t *testing.T) {
 		{
 			ID:       1,
 			Category: "cat1",
-			Amount:   111,
+			Amount:   decimal.NewFromInt(111),
 			Date:     midnight,
 			Comment:  "comment",
 		},
 		{
 			ID:       2,
 			Category: "cat1",
-			Amount:   222,
+			Amount:   decimal.NewFromInt(222),
 			Date:     midnight.Add(timeDelta / 2),
 			Comment:  "comment",
 		},
 		{
 			ID:       3,
 			Category: "cat2",
-			Amount:   999,
+			Amount:   decimal.NewFromInt(999),
 			Date:     midnight.Add(timeDelta),
 			Comment:  "comment",
 		},
