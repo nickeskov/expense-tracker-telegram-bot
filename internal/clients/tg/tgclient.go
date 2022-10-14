@@ -102,7 +102,7 @@ const (
 		"/list - list expenses since and till some dates. Usage: /list <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n"
 )
 
-func requireArgsCountMiddleware(minArgsCount, maxArgsCount int) telebot.MiddlewareFunc {
+func createRequireArgsCountMiddleware(minArgsCount, maxArgsCount int) telebot.MiddlewareFunc {
 	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
 		return func(teleCtx telebot.Context) error {
 			args := teleCtx.Args()
@@ -124,17 +124,17 @@ func (c *Client) initHandlers(ctx context.Context) {
 			return handler(ctx, teleCtx)
 		}
 	}
-	c.bot.Handle("/start", wrap(c.handleStartCmd), requireArgsCountMiddleware(0, 0))
+	c.bot.Handle("/start", wrap(c.handleStartCmd), createRequireArgsCountMiddleware(0, 0))
 	c.bot.Handle("/hello", func(teleCtx telebot.Context) error {
 		return teleCtx.Send(helloMsg)
 	})
 	c.bot.Handle("/help", func(teleCtx telebot.Context) error {
 		return teleCtx.Send(helpMsg)
 	})
-	c.bot.Handle("/currency", wrap(c.handleCurrencyCmd), requireArgsCountMiddleware(0, 1))
-	c.bot.Handle("/expense", wrap(c.handleExpenseCmd), requireArgsCountMiddleware(3, 258))
-	c.bot.Handle("/report", wrap(c.handleExpensesReportCmd), requireArgsCountMiddleware(2, 2))
-	c.bot.Handle("/list", wrap(c.handleExpensesListCmd), requireArgsCountMiddleware(2, 2))
+	c.bot.Handle("/currency", wrap(c.handleCurrencyCmd), createRequireArgsCountMiddleware(0, 1))
+	c.bot.Handle("/expense", wrap(c.handleExpenseCmd), createRequireArgsCountMiddleware(3, 258))
+	c.bot.Handle("/report", wrap(c.handleExpensesReportCmd), createRequireArgsCountMiddleware(2, 2))
+	c.bot.Handle("/list", wrap(c.handleExpensesListCmd), createRequireArgsCountMiddleware(2, 2))
 	c.bot.Handle(telebot.OnText, func(teleCtx telebot.Context) error {
 		msg := "Unsupported action or command\n\n" + helpMsg
 		return teleCtx.Send(msg)
