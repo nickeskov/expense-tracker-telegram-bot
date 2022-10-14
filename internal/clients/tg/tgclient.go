@@ -92,6 +92,7 @@ const (
 	startAlreadyWeKnow = "We already know each other ;)"
 	startNowWeKnow     = "Hello! Now we know each other!"
 	unknownUserMsg     = "Hello! Please, press /start to introduce yourself."
+	noExpensesFoundMsg = "No expenses found."
 	helpMsg            = "" +
 		"List of supported commands:\n" +
 		"/start - send hello and register new user with default selected currency\n" +
@@ -221,6 +222,9 @@ func (c *Client) handleExpensesReportCmd(ctx context.Context, teleCtx telebotRed
 	if err != nil {
 		return errors.Wrapf(err, "failed to create expenses report for userID=%d", userID)
 	}
+	if len(report) == 0 {
+		return teleCtx.Send(noExpensesFoundMsg)
+	}
 	msg, err := report.Text()
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert expenses report to text message for userID=%d", userID)
@@ -252,6 +256,9 @@ func (c *Client) handleExpensesListCmd(ctx context.Context, teleCtx telebotReduc
 	expenses, err := c.expUC.GetExpensesAscendSinceTill(ctx, userID, since, till, maxExpensesList)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create expenses report for userID=%d", userID)
+	}
+	if len(expenses) == 0 {
+		return teleCtx.Send(noExpensesFoundMsg)
 	}
 	for _, exp := range expenses {
 		msg := printExpense(exp)
