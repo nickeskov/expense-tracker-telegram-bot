@@ -19,7 +19,9 @@ run:
 	go run ${PACKAGE}
 
 generate: install-mockgen
-	${MOCKGEN} -source=internal/model/messages/incoming_msg.go -destination=internal/mocks/messages/messages_mocks.go
+	#${MOCKGEN} -source=internal/expense/repository.go -destination=internal/mocks/expense/repository.go # unused for now
+	${MOCKGEN} -source=internal/expense/usecase.go -destination=internal/mocks/expense/usecase.go
+	${MOCKGEN} -source=internal/clients/tg/tgclient.go -destination=internal/mocks/clients/tg.go
 
 lint: install-lint
 	${LINTBIN} run

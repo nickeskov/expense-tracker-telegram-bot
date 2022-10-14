@@ -1,0 +1,14 @@
+# Ignore git items
+.gitignore
+.gitmodules
+.git/
+:include .gitignore
+
+# Ignore docker items
+.dockerignore
+
+# Common large paths
+build/
+vendor/
+.run/
+*.min.js
