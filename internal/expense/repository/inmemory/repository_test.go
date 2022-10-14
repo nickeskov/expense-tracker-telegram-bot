@@ -36,7 +36,7 @@ func Test_ExpenseRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 
-	expensesByDate, err := r.ExpensesByDate(ctx, userID, expected.Date)
+	expensesByDate, err := r.GetExpensesByDate(ctx, userID, expected.Date)
 	require.NoError(t, err)
 	require.Len(t, expensesByDate, 1)
 	require.Equal(t, expected, expensesByDate[0])
@@ -106,7 +106,7 @@ func TestRepository_ExpensesAscendSinceTill(t *testing.T) {
 				require.NoError(t, err)
 			}
 			var actualExpenses []models.Expense
-			err := r.ExpensesAscendSinceTill(ctx, userID, testCase.since, testCase.till, func(e *models.Expense) bool {
+			err := r.GetExpensesAscendSinceTill(ctx, userID, testCase.since, testCase.till, func(e *models.Expense) bool {
 				actualExpenses = append(actualExpenses, *e)
 				return true
 			})

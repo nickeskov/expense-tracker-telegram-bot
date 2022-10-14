@@ -36,6 +36,6 @@ func (r SummaryReport) Text() (string, error) {
 
 type UseCase interface {
 	AddExpense(ctx context.Context, userID models.UserID, expense models.Expense) (models.Expense, error)
-	ExpensesSummaryByCategorySince(ctx context.Context, userID models.UserID, since, till time.Time) (SummaryReport, error)
-	ExpensesAscendSinceTill(ctx context.Context, userID models.UserID, since, till time.Time, max int) ([]models.Expense, error)
+	GetExpensesSummaryByCategorySince(ctx context.Context, userID models.UserID, since, till time.Time) (SummaryReport, error)
+	GetExpensesAscendSinceTill(ctx context.Context, userID models.UserID, since, till time.Time, max int) ([]models.Expense, error)
 }

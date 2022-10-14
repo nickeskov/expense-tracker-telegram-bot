@@ -93,7 +93,7 @@ func Test_handleExpensesReportCmd(t *testing.T) {
 		ID:     messageID,
 		Sender: &telebot.User{ID: int64(userID)},
 	}).After(argCall)
-	reportCall := expUCMock.EXPECT().ExpensesSummaryByCategorySince(ctx, models.UserID(userID), since, till).Times(1).
+	reportCall := expUCMock.EXPECT().GetExpensesSummaryByCategorySince(ctx, models.UserID(userID), since, till).Times(1).
 		Return(report, nil).After(msgCall)
 	teleCtxMock.EXPECT().Send(reportMsg).Times(1).Return(nil).After(reportCall)
 
@@ -134,7 +134,7 @@ func Test_handleExpensesListCmd(t *testing.T) {
 		ID:     messageID,
 		Sender: &telebot.User{ID: int64(userID)},
 	}).After(argCall)
-	reportCall := expUCMock.EXPECT().ExpensesAscendSinceTill(ctx, models.UserID(userID), since, till, maxExpensesList).Times(1).
+	reportCall := expUCMock.EXPECT().GetExpensesAscendSinceTill(ctx, models.UserID(userID), since, till, maxExpensesList).Times(1).
 		Return([]models.Expense{expectedExp, expectedExp}, nil).After(msgCall)
 	teleCtxMock.EXPECT().Send(printExpense(expectedExp)).Times(2).Return(nil).After(reportCall)
 

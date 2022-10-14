@@ -198,7 +198,7 @@ func (c *Client) handleExpensesReportCmd(ctx context.Context, teleCtx telebotRed
 		return teleCtx.Send(fmt.Sprint("Failed to parse till date:", err))
 	}
 	userID := models.UserID(teleCtx.Message().Sender.ID)
-	report, err := c.expUC.ExpensesSummaryByCategorySince(ctx, userID, since, till)
+	report, err := c.expUC.GetExpensesSummaryByCategorySince(ctx, userID, since, till)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create expenses report for userID=%d", userID)
 	}
@@ -230,7 +230,7 @@ func (c *Client) handleExpensesListCmd(ctx context.Context, teleCtx telebotReduc
 		return teleCtx.Send(fmt.Sprint("Failed to parse till date:", err))
 	}
 	userID := models.UserID(teleCtx.Message().Sender.ID)
-	expenses, err := c.expUC.ExpensesAscendSinceTill(ctx, userID, since, till, maxExpensesList)
+	expenses, err := c.expUC.GetExpensesAscendSinceTill(ctx, userID, since, till, maxExpensesList)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create expenses report for userID=%d", userID)
 	}

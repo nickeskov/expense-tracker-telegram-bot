@@ -138,7 +138,7 @@ func TestUseCase_ExpensesSummaryByCategorySince(t *testing.T) {
 			}
 			err := uc.userRepo.ChangeUserCurrency(ctx, userID, testCase.selectedCurr)
 			require.NoError(t, err)
-			summary, err := uc.ExpensesSummaryByCategorySince(ctx, userID, testCase.since, testCase.till)
+			summary, err := uc.GetExpensesSummaryByCategorySince(ctx, userID, testCase.since, testCase.till)
 			require.NoError(t, err)
 			for category, d := range summary {
 				expected := testCase.summaryByCategories[category]

@@ -37,7 +37,7 @@ func (u *UseCase) AddExpense(ctx context.Context, userID models.UserID, expense 
 	return u.expRepo.AddExpense(ctx, userID, expense)
 }
 
-func (u *UseCase) ExpensesSummaryByCategorySince(ctx context.Context, userID models.UserID, since, till time.Time) (expense.SummaryReport, error) {
+func (u *UseCase) GetExpensesSummaryByCategorySince(ctx context.Context, userID models.UserID, since, till time.Time) (expense.SummaryReport, error) {
 	out := make(expense.SummaryReport)
 	err := u.handleExpensesAscendSinceTill(ctx, userID, since, till, func(expense *models.Expense) bool {
 		categoryAmount := out[expense.Category]
@@ -50,7 +50,7 @@ func (u *UseCase) ExpensesSummaryByCategorySince(ctx context.Context, userID mod
 	return out, nil
 }
 
-func (u *UseCase) ExpensesAscendSinceTill(ctx context.Context, userID models.UserID, since, till time.Time, max int) ([]models.Expense, error) {
+func (u *UseCase) GetExpensesAscendSinceTill(ctx context.Context, userID models.UserID, since, till time.Time, max int) ([]models.Expense, error) {
 	var out []models.Expense
 	err := u.handleExpensesAscendSinceTill(ctx, userID, since, till, func(expense *models.Expense) bool {
 		out = append(out, *expense)
@@ -83,7 +83,7 @@ func (u *UseCase) handleExpensesAscendSinceTill(ctx context.Context, userID mode
 			return handler(&exp)
 		}
 	}
-	err = u.expRepo.ExpensesAscendSinceTill(ctx, userID, since, till, iter)
+	err = u.expRepo.GetExpensesAscendSinceTill(ctx, userID, since, till, iter)
 	if err != nil {
 		return err
 	}

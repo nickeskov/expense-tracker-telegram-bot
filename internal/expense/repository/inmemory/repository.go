@@ -101,7 +101,7 @@ func (r *Repository) GetExpense(ctx context.Context, userID models.UserID, expen
 	return *e, nil
 }
 
-func (r *Repository) ExpensesByDate(ctx context.Context, userID models.UserID, date time.Time) ([]models.Expense, error) {
+func (r *Repository) GetExpensesByDate(ctx context.Context, userID models.UserID, date time.Time) ([]models.Expense, error) {
 	expenses := r.getOrInitUserExpenses(userID)
 	expenses.Lock()
 	defer expenses.Unlock()
@@ -113,7 +113,7 @@ func (r *Repository) ExpensesByDate(ctx context.Context, userID models.UserID, d
 	return expensesAtOneDay.cloneExpenses(), nil
 }
 
-func (r *Repository) ExpensesAscendSinceTill(
+func (r *Repository) GetExpensesAscendSinceTill(
 	ctx context.Context,
 	userID models.UserID,
 	since, till time.Time,
