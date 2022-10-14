@@ -91,6 +91,7 @@ const (
 	helloMsg           = "Hello!"
 	startAlreadyWeKnow = "We already know each other ;)"
 	startNowWeKnow     = "Hello! Now we know each other!"
+	unknownUserMsg     = "Hello! Please, press /start to introduce yourself."
 	helpMsg            = "" +
 		"List of supported commands:\n" +
 		"/start - send hello and register new user with default selected currency\n" +
@@ -118,12 +119,30 @@ func createRequireArgsCountMiddleware(minArgsCount, maxArgsCount int) telebot.Mi
 	}
 }
 
+func createIsUserExistsMiddleware(ctx context.Context, userUC user.UseCase) telebot.MiddlewareFunc {
+	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
+		return func(teleCtx telebot.Context) error {
+			userID := models.UserID(teleCtx.Message().Sender.ID)
+			exists, err := userUC.IsUserExists(ctx, userID)
+			if err != nil {
+				return errors.Wrapf(err, "failed to check in middleware whether the user with ID=%d exists", userID)
+			}
+			if exists {
+				return next(teleCtx)
+			}
+			return teleCtx.Send(unknownUserMsg)
+		}
+	}
+}
+
 func (c *Client) initHandlers(ctx context.Context) {
 	wrap := func(handler func(_ context.Context, reducedCtx telebotReducedContext) error) func(telebot.Context) error {
 		return func(teleCtx telebot.Context) error {
 			return handler(ctx, teleCtx)
 		}
 	}
+	checkUser := createIsUserExistsMiddleware(ctx, c.userUC)
+
 	c.bot.Handle("/start", wrap(c.handleStartCmd), createRequireArgsCountMiddleware(0, 0))
 	c.bot.Handle("/hello", func(teleCtx telebot.Context) error {
 		return teleCtx.Send(helloMsg)
@@ -131,10 +150,10 @@ func (c *Client) initHandlers(ctx context.Context) {
 	c.bot.Handle("/help", func(teleCtx telebot.Context) error {
 		return teleCtx.Send(helpMsg)
 	})
-	c.bot.Handle("/currency", wrap(c.handleCurrencyCmd), createRequireArgsCountMiddleware(0, 1))
-	c.bot.Handle("/expense", wrap(c.handleExpenseCmd), createRequireArgsCountMiddleware(3, 258))
-	c.bot.Handle("/report", wrap(c.handleExpensesReportCmd), createRequireArgsCountMiddleware(2, 2))
-	c.bot.Handle("/list", wrap(c.handleExpensesListCmd), createRequireArgsCountMiddleware(2, 2))
+	c.bot.Handle("/currency", wrap(c.handleCurrencyCmd), checkUser, createRequireArgsCountMiddleware(0, 1))
+	c.bot.Handle("/expense", wrap(c.handleExpenseCmd), checkUser, createRequireArgsCountMiddleware(3, 258))
+	c.bot.Handle("/report", wrap(c.handleExpensesReportCmd), checkUser, createRequireArgsCountMiddleware(2, 2))
+	c.bot.Handle("/list", wrap(c.handleExpensesListCmd), checkUser, createRequireArgsCountMiddleware(2, 2))
 	c.bot.Handle(telebot.OnText, func(teleCtx telebot.Context) error {
 		msg := "Unsupported action or command\n\n" + helpMsg
 		return teleCtx.Send(msg)
