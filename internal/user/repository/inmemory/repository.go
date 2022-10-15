@@ -53,8 +53,8 @@ func (r *Repository) ChangeUserCurrency(ctx context.Context, id models.UserID, c
 }
 
 func (r *Repository) GetUserCurrency(ctx context.Context, id models.UserID) (models.CurrencyCode, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	u, ok := r.storage[id]
 	if !ok {
