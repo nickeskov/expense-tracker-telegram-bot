@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 )
 
@@ -17,6 +18,8 @@ type Repository interface {
 	IsUserExists(ctx context.Context, id models.UserID) (bool, error)
 	ChangeUserCurrency(ctx context.Context, id models.UserID, currency models.CurrencyCode) error
 	GetUserCurrency(ctx context.Context, id models.UserID) (models.CurrencyCode, error)
+	SetUserMonthlyLimit(ctx context.Context, id models.UserID, limit *decimal.Decimal) error
+	GetUserMonthlyLimit(ctx context.Context, id models.UserID) (*decimal.Decimal, error)
 }
 
 type UseCase interface {

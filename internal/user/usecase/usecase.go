@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 
+	"github.com/shopspring/decimal"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user"
 )
@@ -29,4 +30,12 @@ func (u *UseCase) ChangeUserCurrency(ctx context.Context, id models.UserID, curr
 
 func (u *UseCase) GetUserCurrency(ctx context.Context, id models.UserID) (models.CurrencyCode, error) {
 	return u.repo.GetUserCurrency(ctx, id)
+}
+
+func (u *UseCase) SetUserMonthlyLimit(ctx context.Context, id models.UserID, limit *decimal.Decimal) error {
+	return u.repo.SetUserMonthlyLimit(ctx, id, limit)
+}
+
+func (u *UseCase) GetUserMonthlyLimit(ctx context.Context, id models.UserID) (*decimal.Decimal, error) {
+	return u.repo.GetUserMonthlyLimit(ctx, id)
 }

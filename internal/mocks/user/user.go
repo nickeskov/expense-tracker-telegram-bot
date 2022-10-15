@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	decimal "github.com/shopspring/decimal"
 	models "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 )
 
@@ -79,6 +80,21 @@ func (mr *MockRepositoryMockRecorder) GetUserCurrency(ctx, id interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserCurrency", reflect.TypeOf((*MockRepository)(nil).GetUserCurrency), ctx, id)
 }
 
+// GetUserMonthlyLimit mocks base method.
+func (m *MockRepository) GetUserMonthlyLimit(ctx context.Context, id models.UserID) (*decimal.Decimal, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserMonthlyLimit", ctx, id)
+	ret0, _ := ret[0].(*decimal.Decimal)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserMonthlyLimit indicates an expected call of GetUserMonthlyLimit.
+func (mr *MockRepositoryMockRecorder) GetUserMonthlyLimit(ctx, id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserMonthlyLimit", reflect.TypeOf((*MockRepository)(nil).GetUserMonthlyLimit), ctx, id)
+}
+
 // IsUserExists mocks base method.
 func (m *MockRepository) IsUserExists(ctx context.Context, id models.UserID) (bool, error) {
 	m.ctrl.T.Helper()
@@ -92,6 +108,20 @@ func (m *MockRepository) IsUserExists(ctx context.Context, id models.UserID) (bo
 func (mr *MockRepositoryMockRecorder) IsUserExists(ctx, id interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUserExists", reflect.TypeOf((*MockRepository)(nil).IsUserExists), ctx, id)
+}
+
+// SetUserMonthlyLimit mocks base method.
+func (m *MockRepository) SetUserMonthlyLimit(ctx context.Context, id models.UserID, limit *decimal.Decimal) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetUserMonthlyLimit", ctx, id, limit)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetUserMonthlyLimit indicates an expected call of SetUserMonthlyLimit.
+func (mr *MockRepositoryMockRecorder) SetUserMonthlyLimit(ctx, id, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUserMonthlyLimit", reflect.TypeOf((*MockRepository)(nil).SetUserMonthlyLimit), ctx, id, limit)
 }
 
 // MockUseCase is a mock of UseCase interface.
@@ -161,6 +191,21 @@ func (mr *MockUseCaseMockRecorder) GetUserCurrency(ctx, id interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserCurrency", reflect.TypeOf((*MockUseCase)(nil).GetUserCurrency), ctx, id)
 }
 
+// GetUserMonthlyLimit mocks base method.
+func (m *MockUseCase) GetUserMonthlyLimit(ctx context.Context, id models.UserID) (*decimal.Decimal, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserMonthlyLimit", ctx, id)
+	ret0, _ := ret[0].(*decimal.Decimal)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserMonthlyLimit indicates an expected call of GetUserMonthlyLimit.
+func (mr *MockUseCaseMockRecorder) GetUserMonthlyLimit(ctx, id interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserMonthlyLimit", reflect.TypeOf((*MockUseCase)(nil).GetUserMonthlyLimit), ctx, id)
+}
+
 // IsUserExists mocks base method.
 func (m *MockUseCase) IsUserExists(ctx context.Context, id models.UserID) (bool, error) {
 	m.ctrl.T.Helper()
@@ -174,4 +219,18 @@ func (m *MockUseCase) IsUserExists(ctx context.Context, id models.UserID) (bool,
 func (mr *MockUseCaseMockRecorder) IsUserExists(ctx, id interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUserExists", reflect.TypeOf((*MockUseCase)(nil).IsUserExists), ctx, id)
+}
+
+// SetUserMonthlyLimit mocks base method.
+func (m *MockUseCase) SetUserMonthlyLimit(ctx context.Context, id models.UserID, limit *decimal.Decimal) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetUserMonthlyLimit", ctx, id, limit)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetUserMonthlyLimit indicates an expected call of SetUserMonthlyLimit.
+func (mr *MockUseCaseMockRecorder) SetUserMonthlyLimit(ctx, id, limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUserMonthlyLimit", reflect.TypeOf((*MockUseCase)(nil).SetUserMonthlyLimit), ctx, id, limit)
 }
