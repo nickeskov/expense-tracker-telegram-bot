@@ -185,12 +185,12 @@ func (c *Client) handleExpenseCmd(ctx context.Context, teleCtx telebotReducedCon
 
 	amount, err := decimal.NewFromString(strAmount)
 	if err != nil {
-		return teleCtx.Send(fmt.Sprint("Failed to parse amount:", err))
+		return teleCtx.Send(fmt.Sprintf("Failed to parse amount: %v", err))
 	}
 
 	day, err := time.Parse(dateLayout, date)
 	if err != nil {
-		return teleCtx.Send(fmt.Sprint("Failed to parse date:", err))
+		return teleCtx.Send(fmt.Sprintf("Failed to parse date: %v", err))
 	}
 
 	comment := strings.Join(commentWords, " ")
@@ -218,11 +218,11 @@ func (c *Client) handleExpensesReportCmd(ctx context.Context, teleCtx telebotRed
 	sinceStr, tillStr := args[0], args[1]
 	since, err := time.Parse(dateLayout, sinceStr)
 	if err != nil {
-		return teleCtx.Send(fmt.Sprint("Failed to parse since date:", err))
+		return teleCtx.Send(fmt.Sprintf("Failed to parse since date: %v", err))
 	}
 	till, err := time.Parse(dateLayout, tillStr)
 	if err != nil {
-		return teleCtx.Send(fmt.Sprint("Failed to parse till date:", err))
+		return teleCtx.Send(fmt.Sprintf("Failed to parse till date: %v", err))
 	}
 	userID := models.UserID(teleCtx.Message().Sender.ID)
 	report, err := c.expUC.GetExpensesSummaryByCategorySince(ctx, userID, since, till)
@@ -253,11 +253,11 @@ func (c *Client) handleExpensesListCmd(ctx context.Context, teleCtx telebotReduc
 	sinceStr, tillStr := args[0], args[1]
 	since, err := time.Parse(dateLayout, sinceStr)
 	if err != nil {
-		return teleCtx.Send(fmt.Sprint("Failed to parse since date:", err))
+		return teleCtx.Send(fmt.Sprintf("Failed to parse since date: %v", err))
 	}
 	till, err := time.Parse(dateLayout, tillStr)
 	if err != nil {
-		return teleCtx.Send(fmt.Sprint("Failed to parse till date:", err))
+		return teleCtx.Send(fmt.Sprintf("Failed to parse till date: %v", err))
 	}
 	userID := models.UserID(teleCtx.Message().Sender.ID)
 	expenses, err := c.expUC.GetExpensesAscendSinceTill(ctx, userID, since, till, maxExpensesList)
