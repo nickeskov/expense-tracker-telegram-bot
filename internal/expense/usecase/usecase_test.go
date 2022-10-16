@@ -54,24 +54,9 @@ func TestUseCase_ExpensesSummaryByCategorySince(t *testing.T) {
 	var (
 		user  = models.NewUser(userID, selectedCurr)
 		rates = []models.ExchangeRate{
-			{
-				ID:   1,
-				Code: selectedCurr,
-				Rate: fromBaseToSelectedRate,
-				Date: midnight,
-			},
-			{
-				ID:   2,
-				Code: selectedCurr,
-				Rate: fromBaseToSelectedRate,
-				Date: midnight.Add(timeDelta / 2),
-			},
-			{
-				ID:   3,
-				Code: selectedCurr,
-				Rate: fromBaseToSelectedRate,
-				Date: midnight.Add(timeDelta),
-			},
+			models.NewExchangeRate(selectedCurr, fromBaseToSelectedRate, midnight),
+			models.NewExchangeRate(selectedCurr, fromBaseToSelectedRate, midnight.Add(timeDelta/2)),
+			models.NewExchangeRate(selectedCurr, fromBaseToSelectedRate, midnight.Add(timeDelta)),
 		}
 		expenses = []models.Expense{
 			{
