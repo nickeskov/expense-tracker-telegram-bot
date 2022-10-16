@@ -75,6 +75,7 @@ func main() {
 		LogUpdates: cfg.Values().LogUpdates,
 		WhiteList:  cfg.Values().WhiteList,
 		BlackList:  cfg.Values().BlackList,
+		Debug:      cfg.Values().Debug,
 	}
 	cl, err := tg.NewWithOptions(cfg.Token(), cfg.Values().BaseCurrency, cfg.Values().SupportedCurrencies, expUC, userUC, opts)
 	if err != nil {

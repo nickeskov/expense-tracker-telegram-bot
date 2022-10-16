@@ -32,6 +32,7 @@ type Options struct {
 	LogUpdates bool
 	BlackList  []int64
 	WhiteList  []int64
+	Debug      bool
 	offline    bool
 }
 
@@ -62,6 +63,9 @@ func NewWithOptions(
 	}
 	if len(opts.BlackList) != 0 {
 		bot.Use(middleware.Blacklist(opts.BlackList...))
+	}
+	if opts.Debug {
+		bot.Use(debugMiddleware)
 	}
 	supportedCurr := make(map[models.CurrencyCode]struct{})
 	for _, code := range supported {
@@ -116,6 +120,19 @@ func makeHelpMessage(baseCurr models.CurrencyCode) string {
 
 func makeDefaultMessage(baseCurr models.CurrencyCode) string {
 	return "Unsupported action or command\n\n" + makeHelpMessage(baseCurr)
+}
+
+func debugMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
+	return func(teleCtx telebot.Context) error {
+		if err := next(teleCtx); err != nil {
+			sendErr := teleCtx.Send(fmt.Sprintf("Oops, something went wrong: %v", err))
+			if sendErr != nil {
+				err = errors.Wrap(err, sendErr.Error())
+			}
+			return err
+		}
+		return nil
+	}
 }
 
 func createRequireArgsCountMiddleware(minArgsCount, maxArgsCount int) telebot.MiddlewareFunc {
