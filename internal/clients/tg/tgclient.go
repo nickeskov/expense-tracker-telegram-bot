@@ -88,11 +88,16 @@ func NewWithOptions(
 }
 
 const (
-	helloMsg           = "Hello!"
-	startAlreadyWeKnow = "We already know each other ;)"
-	startNowWeKnow     = "Hello! Now we know each other!"
-	unknownUserMsg     = "Hello! Please, press /start to introduce yourself."
-	noExpensesFoundMsg = "No expenses found."
+	helloMsg               = "Hello!"
+	startAlreadyWeKnow     = "We already know each other ;)"
+	startNowWeKnow         = "Hello! Now we know each other!"
+	unknownUserMsg         = "Hello! Please, press /start to introduce yourself."
+	noExpensesFoundMsg     = "No expenses found."
+	expensesAmountExceeded = "Can't add expense. Expenses amount exceeded."
+)
+
+const (
+	noneUserMonthlyLimitValue = "none"
 )
 
 func makeHelpMessage(baseCurr models.CurrencyCode) string {
@@ -104,8 +109,9 @@ func makeHelpMessage(baseCurr models.CurrencyCode) string {
 		"/currency - show selected currency or change it to the new one. Usage: /currency <currency - optional>\n" +
 		"/expense - create new expense. Usage: /expense <category - one word> <amount - float> <date - format 'yyyy.mm.dd'> <comment, optional>\n" +
 		"/report - summary report by categories since and till some dates. Usage: /report <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n" +
-		"/list - list expenses since and till some dates. Usage: /list <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n"
-	return fmt.Sprintf(helpMsgFormat, baseCurr)
+		"/list - list expenses since and till some dates. Usage: /list <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n" +
+		"/limit - show expenses amount monthly limit in default currency %q or change it to another one. Usage: /limit <amount - float or '%s', optional>\n"
+	return fmt.Sprintf(helpMsgFormat, baseCurr, baseCurr, noneUserMonthlyLimitValue)
 }
 
 func makeDefaultMessage(baseCurr models.CurrencyCode) string {
@@ -163,6 +169,7 @@ func (c *Client) initHandlers(ctx context.Context) {
 	c.bot.Handle("/expense", wrap(c.handleExpenseCmd), checkUser, createRequireArgsCountMiddleware(3, 258))
 	c.bot.Handle("/report", wrap(c.handleExpensesReportCmd), checkUser, createRequireArgsCountMiddleware(2, 2))
 	c.bot.Handle("/list", wrap(c.handleExpensesListCmd), checkUser, createRequireArgsCountMiddleware(2, 2))
+	c.bot.Handle("/limit", wrap(c.handleLimitCmd), checkUser, createRequireArgsCountMiddleware(0, 1))
 	c.bot.Handle(telebot.OnText, func(teleCtx telebot.Context) error {
 		return teleCtx.Send(makeDefaultMessage(c.baseCurr))
 	})
@@ -205,6 +212,9 @@ func (c *Client) handleExpenseCmd(ctx context.Context, teleCtx telebotReducedCon
 	}
 	userID := models.UserID(teleMsg.Sender.ID)
 	if _, err := c.expUC.AddExpense(ctx, userID, exp); err != nil {
+		if errors.Is(err, expense.ErrExpensesMonthlyLimitExcess) {
+			return teleCtx.Send(expensesAmountExceeded)
+		}
 		return errors.Wrapf(err, "failed to create expense for userID=%d", userID)
 	}
 	return teleCtx.Send("Expense successfully created")
@@ -311,6 +321,34 @@ func (c *Client) handleCurrencyCmd(ctx context.Context, teleCtx telebotReducedCo
 		return errors.Wrapf(err, "failed to change currency to %q for user with ID=%d)", currency, userID)
 	}
 	return teleCtx.Send(fmt.Sprintf("Currency successfully changed to %q", currency))
+}
+
+func (c *Client) handleLimitCmd(ctx context.Context, teleCtx telebotReducedContext) error {
+	args := teleCtx.Args()
+	userID := models.UserID(teleCtx.Message().Sender.ID)
+	if len(args) == 0 {
+		limit, err := c.userUC.GetUserMonthlyLimit(ctx, userID)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get monthly limit for userID=%d", userID)
+		}
+		limitArg := noneUserMonthlyLimitValue
+		if limit != nil {
+			limitArg = fmt.Sprintf("%v", *limit)
+		}
+		return teleCtx.Send(fmt.Sprintf("Your monthly limit is %q in %q", limitArg, c.baseCurr))
+	}
+	var limit *decimal.Decimal
+	if limitArg := args[0]; limitArg != noneUserMonthlyLimitValue {
+		limitValue, err := decimal.NewFromString(limitArg)
+		if err != nil {
+			return teleCtx.Send(fmt.Sprintf("Failed to parse monthly limit: %v", err))
+		}
+		limit = &limitValue
+	}
+	if err := c.userUC.SetUserMonthlyLimit(ctx, userID, limit); err != nil {
+		return errors.Wrapf(err, "failed to set monthly limit for userID=%d", userID)
+	}
+	return teleCtx.Send("Monthly limit successfully set")
 }
 
 func (c *Client) Start(ctx context.Context) {
