@@ -24,6 +24,9 @@ func New(baseCurrency models.CurrencyCode, expRepo expense.Repository, userRepo 
 }
 
 func (u *UseCase) AddExpense(ctx context.Context, userID models.UserID, exp models.Expense) (models.Expense, error) {
+	if !exp.Amount.IsPositive() {
+		return models.Expense{}, expense.ErrExpenseAmountIsNotPositive
+	}
 	curr, err := u.userRepo.GetUserCurrency(ctx, userID)
 	if err != nil {
 		return models.Expense{}, errors.Wrapf(err, "failed to get selected user currency by userID=%d", userID)

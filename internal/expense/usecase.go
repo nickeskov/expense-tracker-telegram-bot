@@ -7,8 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
+)
+
+var (
+	ErrExpenseAmountIsNotPositive = errors.New("expense amount is not positive")
+	ErrExpensesMonthlyLimitExcess = errors.New("expenses monthly limit exceeded")
 )
 
 type SummaryReport map[models.ExpenseCategory]decimal.Decimal

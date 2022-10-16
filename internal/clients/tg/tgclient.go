@@ -92,12 +92,13 @@ func NewWithOptions(
 }
 
 const (
-	helloMsg               = "Hello!"
-	startAlreadyWeKnow     = "We already know each other ;)"
-	startNowWeKnow         = "Hello! Now we know each other!"
-	unknownUserMsg         = "Hello! Please, press /start to introduce yourself."
-	noExpensesFoundMsg     = "No expenses found."
-	expensesAmountExceeded = "Can't add expense. Expenses amount exceeded."
+	helloMsg                   = "Hello!"
+	startAlreadyWeKnow         = "We already know each other ;)"
+	startNowWeKnow             = "Hello! Now we know each other!"
+	unknownUserMsg             = "Hello! Please, press /start to introduce yourself."
+	noExpensesFoundMsg         = "No expenses found."
+	expensesAmountExceeded     = "Can't add expense. Expenses amount exceeded."
+	expenseAmountIsNotPositive = "Please, provide positive expense amount."
 )
 
 const (
@@ -229,10 +230,14 @@ func (c *Client) handleExpenseCmd(ctx context.Context, teleCtx telebotReducedCon
 	}
 	userID := models.UserID(teleMsg.Sender.ID)
 	if _, err := c.expUC.AddExpense(ctx, userID, exp); err != nil {
-		if errors.Is(err, expense.ErrExpensesMonthlyLimitExcess) {
+		switch {
+		case errors.Is(err, expense.ErrExpensesMonthlyLimitExcess):
 			return teleCtx.Send(expensesAmountExceeded)
+		case errors.Is(err, expense.ErrExpenseAmountIsNotPositive):
+			return teleCtx.Send(expenseAmountIsNotPositive)
+		default:
+			return errors.Wrapf(err, "failed to create expense for userID=%d", userID)
 		}
-		return errors.Wrapf(err, "failed to create expense for userID=%d", userID)
 	}
 	return teleCtx.Send("Expense successfully created")
 }
