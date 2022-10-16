@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/btree"
-	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 )
 
@@ -103,18 +102,6 @@ func (r *Repository) AddExpense(ctx context.Context, userID models.UserID, expen
 	expensesAtOneDay.expenses = append(expensesAtOneDay.expenses, &expense)
 	expenses.byID[expense.ID] = &expense
 	return expense, nil
-}
-
-func (r *Repository) GetExpense(ctx context.Context, userID models.UserID, expenseID models.ExpenseID) (models.Expense, error) {
-	expenses := r.getUserExpenses(userID)
-	expenses.Lock()
-	defer expenses.Unlock()
-
-	e, ok := expenses.byID[expenseID]
-	if !ok {
-		return models.Expense{}, expense.ErrExpenseDoesNotExist
-	}
-	return *e, nil
 }
 
 func (r *Repository) GetExpensesByDate(ctx context.Context, userID models.UserID, date time.Time) ([]models.Expense, error) {
