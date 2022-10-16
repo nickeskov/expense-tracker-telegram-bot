@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	ErrExpenseDoesNotExist = errors.New("expense does not exist")
+	ErrExpenseDoesNotExist        = errors.New("expense does not exist")
+	ErrExpensesMonthlyLimitExcess = errors.New("expenses monthly limit exceeded")
 )
 
 type Repository interface {
