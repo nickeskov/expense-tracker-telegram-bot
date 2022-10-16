@@ -92,20 +92,21 @@ func NewWithOptions(
 }
 
 const (
-	helloMsg                   = "Hello!"
-	startAlreadyWeKnow         = "We already know each other ;)"
-	startNowWeKnow             = "Hello! Now we know each other!"
-	unknownUserMsg             = "Hello! Please, press /start to introduce yourself."
-	noExpensesFoundMsg         = "No expenses found."
-	expensesAmountExceeded     = "Can't add expense. Expenses amount exceeded."
-	expenseAmountIsNotPositive = "Please, provide positive expense amount."
+	helloMsg                      = "Hello!"
+	startAlreadyWeKnowMsg         = "We already know each other ;)"
+	startNowWeKnowMsg             = "Hello! Now we know each other!"
+	unknownUserMsg                = "Hello! Please, press /start to introduce yourself."
+	noExpensesFoundMsg            = "No expenses found."
+	expensesAmountExceededMsg     = "Can't add expense. Expenses amount exceeded."
+	expenseAmountIsNotPositiveMsg = "Please, provide positive expense amount."
+	monthlyLimitIsNegativeMsg     = "Please, provide not negative limit amount or absense of amount."
 )
 
 const (
 	noneUserMonthlyLimitValue = "none"
 )
 
-func makeHelpMessage(baseCurr models.CurrencyCode) string {
+func makeHelpMsg(baseCurr models.CurrencyCode) string {
 	const helpMsgFormat = "" +
 		"List of supported commands:\n" +
 		"/start - send hello and register new user with default selected currency %q\n" +
@@ -119,8 +120,8 @@ func makeHelpMessage(baseCurr models.CurrencyCode) string {
 	return fmt.Sprintf(helpMsgFormat, baseCurr, baseCurr, noneUserMonthlyLimitValue)
 }
 
-func makeDefaultMessage(baseCurr models.CurrencyCode) string {
-	return "Unsupported action or command\n\n" + makeHelpMessage(baseCurr)
+func makeDefaultMsg(baseCurr models.CurrencyCode) string {
+	return "Unsupported action or command\n\n" + makeHelpMsg(baseCurr)
 }
 
 func debugMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
@@ -181,7 +182,7 @@ func (c *Client) initHandlers(ctx context.Context) {
 		return teleCtx.Send(helloMsg)
 	})
 	c.bot.Handle("/help", func(teleCtx telebot.Context) error {
-		return teleCtx.Send(makeHelpMessage(c.baseCurr))
+		return teleCtx.Send(makeHelpMsg(c.baseCurr))
 	})
 	c.bot.Handle("/currency", wrap(c.handleCurrencyCmd), checkUser, createRequireArgsCountMiddleware(0, 1))
 	c.bot.Handle("/expense", wrap(c.handleExpenseCmd), checkUser, createRequireArgsCountMiddleware(3, 258))
@@ -189,7 +190,7 @@ func (c *Client) initHandlers(ctx context.Context) {
 	c.bot.Handle("/list", wrap(c.handleExpensesListCmd), checkUser, createRequireArgsCountMiddleware(2, 2))
 	c.bot.Handle("/limit", wrap(c.handleLimitCmd), checkUser, createRequireArgsCountMiddleware(0, 1))
 	c.bot.Handle(telebot.OnText, func(teleCtx telebot.Context) error {
-		return teleCtx.Send(makeDefaultMessage(c.baseCurr))
+		return teleCtx.Send(makeDefaultMsg(c.baseCurr))
 	})
 }
 
@@ -232,9 +233,9 @@ func (c *Client) handleExpenseCmd(ctx context.Context, teleCtx telebotReducedCon
 	if _, err := c.expUC.AddExpense(ctx, userID, exp); err != nil {
 		switch {
 		case errors.Is(err, expense.ErrExpensesMonthlyLimitExcess):
-			return teleCtx.Send(expensesAmountExceeded)
+			return teleCtx.Send(expensesAmountExceededMsg)
 		case errors.Is(err, expense.ErrExpenseAmountIsNotPositive):
-			return teleCtx.Send(expenseAmountIsNotPositive)
+			return teleCtx.Send(expenseAmountIsNotPositiveMsg)
 		default:
 			return errors.Wrapf(err, "failed to create expense for userID=%d", userID)
 		}
@@ -316,12 +317,12 @@ func (c *Client) handleStartCmd(ctx context.Context, teleCtx telebotReducedConte
 		return errors.Wrapf(err, "failed to check whether user with ID=%d exists or not", userID)
 	}
 	if exists {
-		return teleCtx.Send(startAlreadyWeKnow)
+		return teleCtx.Send(startAlreadyWeKnowMsg)
 	}
 	if _, err := c.userUC.CreateUser(ctx, u); err != nil {
 		return errors.Wrapf(err, "failed to create user with ID=%d if not exist", userID)
 	}
-	return teleCtx.Send(startNowWeKnow)
+	return teleCtx.Send(startNowWeKnowMsg)
 }
 
 func (c *Client) handleCurrencyCmd(ctx context.Context, teleCtx telebotReducedContext) error {
@@ -368,6 +369,9 @@ func (c *Client) handleLimitCmd(ctx context.Context, teleCtx telebotReducedConte
 		limit = &limitValue
 	}
 	if err := c.userUC.SetUserMonthlyLimit(ctx, userID, limit); err != nil {
+		if errors.Is(err, user.ErrMonthlyLimitIsNegative) {
+			return teleCtx.Send(monthlyLimitIsNegativeMsg)
+		}
 		return errors.Wrapf(err, "failed to set monthly limit for userID=%d", userID)
 	}
 	return teleCtx.Send("Monthly limit successfully set")

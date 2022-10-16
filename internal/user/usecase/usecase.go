@@ -33,6 +33,9 @@ func (u *UseCase) GetUserCurrency(ctx context.Context, id models.UserID) (models
 }
 
 func (u *UseCase) SetUserMonthlyLimit(ctx context.Context, id models.UserID, limit *decimal.Decimal) error {
+	if limit != nil && limit.IsNegative() {
+		return user.ErrMonthlyLimitIsNegative
+	}
 	return u.repo.SetUserMonthlyLimit(ctx, id, limit)
 }
 
