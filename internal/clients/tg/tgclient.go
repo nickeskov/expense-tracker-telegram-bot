@@ -93,17 +93,24 @@ const (
 	startNowWeKnow     = "Hello! Now we know each other!"
 	unknownUserMsg     = "Hello! Please, press /start to introduce yourself."
 	noExpensesFoundMsg = "No expenses found."
-	helpMsg            = "" +
+)
+
+func makeHelpMessage(baseCurr models.CurrencyCode) string {
+	const helpMsgFormat = "" +
 		"List of supported commands:\n" +
-		"/start - send hello and register new user with default selected currency\n" +
+		"/start - send hello and register new user with default selected currency %q\n" +
 		"/hello - send hello\n" +
 		"/help - print this help\n" +
 		"/currency - show selected currency or change it to the new one. Usage: /currency <currency - optional>\n" +
 		"/expense - create new expense. Usage: /expense <category - one word> <amount - float> <date - format 'yyyy.mm.dd'> <comment, optional>\n" +
 		"/report - summary report by categories since and till some dates. Usage: /report <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n" +
 		"/list - list expenses since and till some dates. Usage: /list <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n"
-	onTextDefaultMsg = "Unsupported action or command\n\n" + helpMsg
-)
+	return fmt.Sprintf(helpMsgFormat, baseCurr)
+}
+
+func makeDefaultMessage(baseCurr models.CurrencyCode) string {
+	return "Unsupported action or command\n\n" + makeHelpMessage(baseCurr)
+}
 
 func createRequireArgsCountMiddleware(minArgsCount, maxArgsCount int) telebot.MiddlewareFunc {
 	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
@@ -150,14 +157,14 @@ func (c *Client) initHandlers(ctx context.Context) {
 		return teleCtx.Send(helloMsg)
 	})
 	c.bot.Handle("/help", func(teleCtx telebot.Context) error {
-		return teleCtx.Send(helpMsg)
+		return teleCtx.Send(makeHelpMessage(c.baseCurr))
 	})
 	c.bot.Handle("/currency", wrap(c.handleCurrencyCmd), checkUser, createRequireArgsCountMiddleware(0, 1))
 	c.bot.Handle("/expense", wrap(c.handleExpenseCmd), checkUser, createRequireArgsCountMiddleware(3, 258))
 	c.bot.Handle("/report", wrap(c.handleExpensesReportCmd), checkUser, createRequireArgsCountMiddleware(2, 2))
 	c.bot.Handle("/list", wrap(c.handleExpensesListCmd), checkUser, createRequireArgsCountMiddleware(2, 2))
 	c.bot.Handle(telebot.OnText, func(teleCtx telebot.Context) error {
-		return teleCtx.Send(onTextDefaultMsg)
+		return teleCtx.Send(makeDefaultMessage(c.baseCurr))
 	})
 }
 
