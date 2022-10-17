@@ -6,21 +6,22 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/database/postgres"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 )
 
 type Repository struct {
-	db *sql.DB
+	db postgres.DBDoer
 }
 
-func New(db *sql.DB) (*Repository, error) {
+func New(db postgres.DBDoer) (*Repository, error) {
 	return &Repository{db: db}, nil
 }
 
 func (r *Repository) GetRate(ctx context.Context, curr models.CurrencyCode, date time.Time) (models.ExchangeRate, error) {
 	var rate models.ExchangeRate
-	err := r.db.QueryRowContext(ctx,
+	err := r.db.Do(ctx).QueryRowContext(ctx,
 		"SELECT currency, date, rate FROM exchange_rates WHERE currency = $1 AND date = $2",
 		curr, date.UTC(),
 	).Scan(&rate.Code, &rate.Date, &rate.Rate)
@@ -37,7 +38,7 @@ func (r *Repository) AddOrUpdateRates(ctx context.Context, rates ...models.Excha
 	if len(rates) == 0 {
 		return nil
 	}
-	tx, err := r.db.BeginTx(ctx, nil)
+	tx, err := r.db.Do(ctx).BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to begin transaction for add or update exchange rates")
 	}

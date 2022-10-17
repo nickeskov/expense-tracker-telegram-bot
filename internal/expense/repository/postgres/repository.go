@@ -2,23 +2,23 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/pkg/errors"
+	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/database/postgres"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 )
 
 type Repository struct {
-	db *sql.DB
+	db postgres.DBDoer
 }
 
-func New(db *sql.DB) (*Repository, error) {
+func New(db postgres.DBDoer) (*Repository, error) {
 	return &Repository{db: db}, nil
 }
 
 func (r *Repository) AddExpense(ctx context.Context, userID models.UserID, exp models.Expense) (models.Expense, error) {
-	err := r.db.QueryRowContext(ctx,
+	err := r.db.Do(ctx).QueryRowContext(ctx,
 		"INSERT INTO expenses (user_id, category, amount, date, comment) VALUES ($1, $2, $3, $4, $5) RETURNING id",
 		userID, exp.Category, exp.Amount, exp.Date.UTC(), exp.Comment,
 	).Scan(&exp.ID)
@@ -46,7 +46,7 @@ func (r *Repository) GetExpensesAscendSinceTill(
 	since, till time.Time,
 	iter func(expense *models.Expense) bool,
 ) (err error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := r.db.Do(ctx).QueryContext(ctx,
 		"SELECT id, category, amount, date, comment FROM expenses WHERE user_id = $1 AND date BETWEEN $2 AND $3 ORDER BY date",
 		userID, since.UTC(), till.UTC(),
 	)

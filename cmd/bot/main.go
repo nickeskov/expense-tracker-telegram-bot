@@ -13,6 +13,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/clients/tg"
+	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/database/postgres"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/config"
 	expenseRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/repository/postgres"
 	expenseUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/usecase"
@@ -53,8 +54,9 @@ func main() {
 	if err := db.PingContext(ctx); err != nil {
 		log.Fatal("Failed to ping db: ", err)
 	}
+	dbDoer := postgres.NewDBDoer(db)
 
-	userRepo, err := userRepository.New(db)
+	userRepo, err := userRepository.New(dbDoer)
 	if err != nil {
 		log.Fatal("Failed to create user repository:", err)
 	}
@@ -63,7 +65,7 @@ func main() {
 		log.Fatal("Failed to create user usecase:", err)
 	}
 
-	exrateRepo, err := exchangeRatesRepo.New(db)
+	exrateRepo, err := exchangeRatesRepo.New(dbDoer)
 	if err != nil {
 		log.Fatal("Failed to create exchange rates repository:", err)
 	}
@@ -76,7 +78,7 @@ func main() {
 		log.Fatal("Failed to create exchange rates usecase:", err)
 	}
 
-	expRepo, err := expenseRepository.New(db)
+	expRepo, err := expenseRepository.New(dbDoer)
 	if err != nil {
 		log.Fatal("Failed to create expenses repository:", err)
 	}

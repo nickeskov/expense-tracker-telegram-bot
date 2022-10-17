@@ -98,7 +98,7 @@ func (d *db) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &transaction{ctx: ctx, Tx: sqlTx}, nil
+	return newRootTx(ctx, sqlTx), nil
 }
 
 type transaction struct {
@@ -107,36 +107,55 @@ type transaction struct {
 	ctx       context.Context
 }
 
-func (tx *transaction) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
+func newRootTx(ctx context.Context, sqlTx *sql.Tx) Tx {
+	return &transaction{ctx: ctx, Tx: sqlTx}
+}
+
+func createSavepointName() (string, error) {
 	uuID, err := uuid.New().MarshalBinary()
+	if err != nil {
+		return "", err
+	}
+	savepoint := "point" + hex.EncodeToString(uuID)
+	return savepoint, nil
+}
+
+func newNestedTx(ctx context.Context, parent *transaction) (Tx, error) {
+	savepoint, err := createSavepointName()
 	if err != nil {
 		return nil, err
 	}
-	savepoint := hex.EncodeToString(uuID)
-	_, err = tx.Tx.ExecContext(ctx, "SAVEPOINT $1", savepoint)
+	_, err = parent.Tx.ExecContext(ctx, "SAVEPOINT "+savepoint)
 	if err != nil {
 		return nil, err
 	}
 	return &transaction{
-		Tx:        tx.Tx,
+		Tx:        parent.Tx,
 		savepoint: savepoint,
 		ctx:       ctx,
 	}, nil
+}
 
+func (tx *transaction) isRootTx() bool {
+	return tx.savepoint == ""
+}
+
+func (tx *transaction) BeginTx(ctx context.Context, opts *sql.TxOptions) (Tx, error) {
+	return newNestedTx(ctx, tx)
 }
 
 func (tx *transaction) Commit() error {
-	if tx.savepoint == "" {
+	if tx.isRootTx() {
 		return tx.Tx.Commit()
 	}
-	_, err := tx.Tx.ExecContext(tx.ctx, "RELEASE SAVEPOINT $1", tx.savepoint)
+	_, err := tx.Tx.ExecContext(tx.ctx, "RELEASE SAVEPOINT "+tx.savepoint)
 	return err
 }
 
 func (tx *transaction) Rollback() error {
-	if tx.savepoint == "" {
+	if tx.isRootTx() {
 		return tx.Tx.Rollback()
 	}
-	_, err := tx.Tx.ExecContext(tx.ctx, "ROLLBACK TO SAVEPOINT $1", tx.savepoint)
+	_, err := tx.Tx.ExecContext(tx.ctx, "ROLLBACK TO SAVEPOINT "+tx.savepoint)
 	return err
 }
