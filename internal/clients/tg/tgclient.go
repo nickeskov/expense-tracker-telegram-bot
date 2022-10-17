@@ -99,6 +99,7 @@ const (
 	noExpensesFoundMsg            = "No expenses found."
 	expensesAmountExceededMsg     = "Can't add expense. Expenses amount exceeded."
 	expenseAmountIsNotPositiveMsg = "Please, provide positive expense amount."
+	expenseAmountIsTooBigMsg      = "Expense amount is too big"
 	monthlyLimitIsNegativeMsg     = "Please, provide not negative limit amount or absense of amount."
 )
 
@@ -229,13 +230,21 @@ func (c *Client) handleExpenseCmd(ctx context.Context, teleCtx telebotReducedCon
 		Date:     day,
 		Comment:  comment,
 	}
+	if err := exp.Validate(); err != nil {
+		switch {
+		case errors.Is(err, models.ErrExpenseAmountTooBig):
+			return teleCtx.Send(expenseAmountIsTooBigMsg)
+		case errors.Is(err, models.ErrExpenseAmountIsNotPositive):
+			return teleCtx.Send(expenseAmountIsNotPositiveMsg)
+		default:
+			return errors.Wrapf(err, "unknown expense validation error")
+		}
+	}
 	userID := models.UserID(teleMsg.Sender.ID)
 	if _, err := c.expUC.AddExpense(ctx, userID, exp); err != nil {
 		switch {
 		case errors.Is(err, expense.ErrExpensesMonthlyLimitExcess):
 			return teleCtx.Send(expensesAmountExceededMsg)
-		case errors.Is(err, expense.ErrExpenseAmountIsNotPositive):
-			return teleCtx.Send(expenseAmountIsNotPositiveMsg)
 		default:
 			return errors.Wrapf(err, "failed to create expense for userID=%d", userID)
 		}

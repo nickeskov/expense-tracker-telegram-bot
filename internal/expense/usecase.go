@@ -12,10 +12,7 @@ import (
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 )
 
-var (
-	ErrExpenseAmountIsNotPositive = errors.New("expense amount is not positive")
-	ErrExpensesMonthlyLimitExcess = errors.New("expenses monthly limit exceeded")
-)
+var ErrExpensesMonthlyLimitExcess = errors.New("expenses monthly limit exceeded")
 
 type SummaryReport map[models.ExpenseCategory]decimal.Decimal
 
