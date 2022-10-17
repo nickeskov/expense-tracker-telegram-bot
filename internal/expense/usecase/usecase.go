@@ -40,23 +40,37 @@ func (u *UseCase) AddExpense(ctx context.Context, userID models.UserID, exp mode
 	}
 	nowYear, nowMonth, _ := time.Now().UTC().Date()
 	expenseYear, expenseMonth, _ := exp.Date.UTC().Date()
-	if expenseMonth == nowMonth && expenseYear == nowYear {
+	// we don't check limit if expense month is not current month
+	if expenseMonth != nowMonth || expenseYear != nowYear {
+		return u.expRepo.AddExpense(ctx, userID, exp)
+	}
+	// expense happened in the current month
+	var out models.Expense
+	err = u.expRepo.Isolated(ctx, func(ctx context.Context) error {
 		limit, err := u.userRepo.GetUserMonthlyLimit(ctx, userID)
 		if err != nil {
-			return models.Expense{}, errors.Wrapf(err, "failed to get user montly limit by userID=%q", userID)
+			return errors.Wrapf(err, "failed to get user montly limit by userID=%q", userID)
 		}
 		if limit != nil {
 			spentByMonth, err := u.getUserExpensesSumByMonth(ctx, userID, expenseYear, expenseMonth)
 			if err != nil {
-				return models.Expense{}, errors.Wrap(err, "failed to add expense")
+				return errors.Wrap(err, "failed to get user expenses sum by month")
 			}
 			newSum := spentByMonth.Add(exp.Amount)
 			if newSum.GreaterThan(*limit) {
-				return models.Expense{}, expense.ErrExpensesMonthlyLimitExcess
+				return expense.ErrExpensesMonthlyLimitExcess
 			}
 		}
+		out, err = u.expRepo.AddExpense(ctx, userID, exp)
+		if err != nil {
+			return errors.Wrap(err, "failed to add expense to expenses repository")
+		}
+		return nil
+	})
+	if err != nil {
+		return models.Expense{}, errors.Wrapf(err, "error occured in expenses repo isolated environment")
 	}
-	return u.expRepo.AddExpense(ctx, userID, exp)
+	return out, nil
 }
 
 func (u *UseCase) GetExpensesSummaryByCategorySince(ctx context.Context, userID models.UserID, since, till time.Time) (expense.SummaryReport, error) {

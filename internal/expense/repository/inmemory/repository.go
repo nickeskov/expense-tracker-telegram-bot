@@ -11,6 +11,7 @@ import (
 
 type Repository struct {
 	mu           *sync.RWMutex
+	isolatedMu   *sync.Mutex
 	userExpenses map[models.UserID]*userExpenses
 }
 type expensesAtOneDate struct {
@@ -57,6 +58,7 @@ func newUserExpensesByDate(btreeDegree int) *userExpenses {
 func New() (*Repository, error) {
 	return &Repository{
 		mu:           &sync.RWMutex{},
+		isolatedMu:   &sync.Mutex{},
 		userExpenses: map[models.UserID]*userExpenses{},
 	}, nil
 }
@@ -86,6 +88,12 @@ func (r *Repository) getUserExpenses(userID models.UserID) *userExpenses {
 		expenses = r.tryInitUserExpenses(userID)
 	}
 	return expenses
+}
+
+func (r *Repository) Isolated(ctx context.Context, callback func(ctx context.Context) error) error {
+	r.isolatedMu.Lock()
+	defer r.isolatedMu.Unlock()
+	return callback(ctx)
 }
 
 func (r *Repository) AddExpense(ctx context.Context, userID models.UserID, expense models.Expense) (models.Expense, error) {

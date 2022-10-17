@@ -17,6 +17,10 @@ func New(db postgres.DBDoer) (*Repository, error) {
 	return &Repository{db: db}, nil
 }
 
+func (r *Repository) Isolated(ctx context.Context, callback func(ctx context.Context) error) error {
+	return r.db.DoIsolated(ctx, nil, callback)
+}
+
 func (r *Repository) AddExpense(ctx context.Context, userID models.UserID, exp models.Expense) (models.Expense, error) {
 	err := r.db.Do(ctx).QueryRowContext(ctx,
 		"INSERT INTO expenses (user_id, category, amount, date, comment) VALUES ($1, $2, $3, $4, $5) RETURNING id",
