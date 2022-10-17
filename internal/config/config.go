@@ -17,6 +17,7 @@ type Values struct {
 	ExchangeRatesUpdateInterval time.Duration         `yaml:"exchange-rates-update-interval"`
 	WhiteList                   []int64               `yaml:"white-list,flow"`
 	BlackList                   []int64               `yaml:"black-list,flow"`
+	DBConnectionString          string                `yaml:"db-connection-string"`
 }
 
 type config struct {
