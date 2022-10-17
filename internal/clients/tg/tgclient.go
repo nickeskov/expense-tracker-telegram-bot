@@ -101,6 +101,7 @@ const (
 	expenseAmountIsNotPositiveMsg = "Please, provide positive expense amount."
 	expenseAmountIsTooBigMsg      = "Expense amount is too big"
 	monthlyLimitIsNegativeMsg     = "Please, provide not negative limit amount or absense of amount."
+	monthlyLimitIsTooBigMsg       = "Monthly limit is too big."
 )
 
 const (
@@ -377,10 +378,17 @@ func (c *Client) handleLimitCmd(ctx context.Context, teleCtx telebotReducedConte
 		}
 		limit = &limitValue
 	}
-	if err := c.userUC.SetUserMonthlyLimit(ctx, userID, limit); err != nil {
-		if errors.Is(err, user.ErrMonthlyLimitIsNegative) {
+	if err := models.ValidateUserMonthlyLimit(limit); err != nil {
+		switch {
+		case errors.Is(err, models.ErrUserMonthlyLimitTooBig):
+			return teleCtx.Send(monthlyLimitIsTooBigMsg)
+		case errors.Is(err, models.ErrUserMonthlyLimitIsNegative):
 			return teleCtx.Send(monthlyLimitIsNegativeMsg)
+		default:
+			return errors.Wrapf(err, "unknown user monthly limit validation error")
 		}
+	}
+	if err := c.userUC.SetUserMonthlyLimit(ctx, userID, limit); err != nil {
 		return errors.Wrapf(err, "failed to set monthly limit for userID=%d", userID)
 	}
 	return teleCtx.Send("Monthly limit successfully set")

@@ -9,9 +9,8 @@ import (
 )
 
 var (
-	ErrAlreadyExists          = errors.New("user already exists")
-	ErrDoesNotExist           = errors.New("user does not exist")
-	ErrMonthlyLimitIsNegative = errors.New("monthly limit is negative")
+	ErrAlreadyExists = errors.New("user already exists")
+	ErrDoesNotExist  = errors.New("user does not exist")
 )
 
 type Repository interface {
