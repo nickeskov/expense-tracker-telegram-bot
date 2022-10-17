@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	defaultFetchRequestTimeout = 2 * time.Second
+	defaultFetchRequestTimeout = 5 * time.Second
 	fetchByDateLayout          = "2006-01-02"
 	exchangeRatesAPIURL        = "https://api.exchangerate.host"
 )
