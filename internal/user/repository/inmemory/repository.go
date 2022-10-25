@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/shopspring/decimal"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user"
 )
@@ -53,8 +54,8 @@ func (r *Repository) ChangeUserCurrency(ctx context.Context, id models.UserID, c
 }
 
 func (r *Repository) GetUserCurrency(ctx context.Context, id models.UserID) (models.CurrencyCode, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	u, ok := r.storage[id]
 	if !ok {
@@ -62,4 +63,28 @@ func (r *Repository) GetUserCurrency(ctx context.Context, id models.UserID) (mod
 		return zero, user.ErrDoesNotExist
 	}
 	return u.SelectedCurrency, nil
+}
+
+func (r *Repository) SetUserMonthlyLimit(ctx context.Context, id models.UserID, limit *decimal.Decimal) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	u, ok := r.storage[id]
+	if !ok {
+		return user.ErrDoesNotExist
+	}
+	u.MonthlyLimit = limit
+	r.storage[id] = u
+	return nil
+}
+
+func (r *Repository) GetUserMonthlyLimit(ctx context.Context, id models.UserID) (*decimal.Decimal, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	u, ok := r.storage[id]
+	if !ok {
+		return nil, user.ErrDoesNotExist
+	}
+	return u.MonthlyLimit, nil
 }

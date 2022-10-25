@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user"
@@ -134,6 +135,88 @@ func TestRepository_GetUserCurrency(t *testing.T) {
 		} else {
 			require.NoError(t, err)
 			require.Equal(t, u.SelectedCurrency, storedCurr)
+		}
+	}
+}
+
+func TestRepository_GetUserMonthlyLimit(t *testing.T) {
+	ctx := context.Background()
+	u := defaultUser
+	expectedLimit := decimal.NewFromInt(42)
+
+	tests := []struct {
+		repoFn      repoFn
+		limit       *decimal.Decimal
+		expectedErr error
+	}{
+		{
+			repoFn:      func(t *testing.T) *Repository { return newRepoWithUser(t, u) },
+			limit:       nil,
+			expectedErr: nil,
+		},
+		{
+			repoFn: func(t *testing.T) *Repository {
+				u := u
+				u.MonthlyLimit = &expectedLimit
+				return newRepoWithUser(t, u)
+			},
+			limit:       &expectedLimit,
+			expectedErr: nil,
+		},
+		{
+			repoFn:      newRepo,
+			limit:       nil,
+			expectedErr: user.ErrDoesNotExist,
+		},
+	}
+	for _, test := range tests {
+		r := test.repoFn(t)
+		limit, err := r.GetUserMonthlyLimit(ctx, u.ID)
+		if test.expectedErr != nil {
+			require.Equal(t, err, test.expectedErr)
+		} else {
+			require.NoError(t, err)
+			require.Equal(t, test.limit, limit)
+		}
+	}
+}
+
+func TestRepository_SetUserMonthlyLimit(t *testing.T) {
+	ctx := context.Background()
+	u := defaultUser
+	expectedLimit := decimal.NewFromInt(42)
+
+	tests := []struct {
+		repoFn      repoFn
+		limit       *decimal.Decimal
+		expectedErr error
+	}{
+		{
+			repoFn:      func(t *testing.T) *Repository { return newRepoWithUser(t, u) },
+			limit:       nil,
+			expectedErr: nil,
+		},
+		{
+			repoFn:      func(t *testing.T) *Repository { return newRepoWithUser(t, u) },
+			limit:       &expectedLimit,
+			expectedErr: nil,
+		},
+		{
+			repoFn:      newRepo,
+			limit:       nil,
+			expectedErr: user.ErrDoesNotExist,
+		},
+	}
+	for _, test := range tests {
+		r := test.repoFn(t)
+		err := r.SetUserMonthlyLimit(ctx, u.ID, test.limit)
+		if test.expectedErr != nil {
+			require.Equal(t, err, test.expectedErr)
+		} else {
+			require.NoError(t, err)
+			limit, err := r.GetUserMonthlyLimit(ctx, u.ID)
+			require.NoError(t, err)
+			require.Equal(t, test.limit, limit)
 		}
 	}
 }

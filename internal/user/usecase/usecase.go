@@ -3,6 +3,8 @@ package usecase
 import (
 	"context"
 
+	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user"
 )
@@ -16,6 +18,9 @@ func New(repo user.Repository) (*UseCase, error) {
 }
 
 func (u *UseCase) CreateUser(ctx context.Context, um models.User) (models.User, error) {
+	if err := um.Validate(); err != nil {
+		return models.User{}, errors.Wrap(err, "user model validation failed")
+	}
 	return u.repo.CreateUser(ctx, um)
 }
 
@@ -29,4 +34,15 @@ func (u *UseCase) ChangeUserCurrency(ctx context.Context, id models.UserID, curr
 
 func (u *UseCase) GetUserCurrency(ctx context.Context, id models.UserID) (models.CurrencyCode, error) {
 	return u.repo.GetUserCurrency(ctx, id)
+}
+
+func (u *UseCase) SetUserMonthlyLimit(ctx context.Context, id models.UserID, limit *decimal.Decimal) error {
+	if err := models.ValidateUserMonthlyLimit(limit); err != nil {
+		return errors.Wrap(err, "user monthly limit validation failed")
+	}
+	return u.repo.SetUserMonthlyLimit(ctx, id, limit)
+}
+
+func (u *UseCase) GetUserMonthlyLimit(ctx context.Context, id models.UserID) (*decimal.Decimal, error) {
+	return u.repo.GetUserMonthlyLimit(ctx, id)
 }

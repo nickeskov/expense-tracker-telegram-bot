@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/google/btree"
-	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 )
 
 type Repository struct {
 	mu           *sync.RWMutex
+	isolatedMu   *sync.Mutex
 	userExpenses map[models.UserID]*userExpenses
 }
 type expensesAtOneDate struct {
@@ -58,6 +58,7 @@ func newUserExpensesByDate(btreeDegree int) *userExpenses {
 func New() (*Repository, error) {
 	return &Repository{
 		mu:           &sync.RWMutex{},
+		isolatedMu:   &sync.Mutex{},
 		userExpenses: map[models.UserID]*userExpenses{},
 	}, nil
 }
@@ -89,6 +90,12 @@ func (r *Repository) getUserExpenses(userID models.UserID) *userExpenses {
 	return expenses
 }
 
+func (r *Repository) Isolated(ctx context.Context, callback func(ctx context.Context) error) error {
+	r.isolatedMu.Lock()
+	defer r.isolatedMu.Unlock()
+	return callback(ctx)
+}
+
 func (r *Repository) AddExpense(ctx context.Context, userID models.UserID, expense models.Expense) (models.Expense, error) {
 	expenses := r.getUserExpenses(userID)
 	expenses.Lock()
@@ -103,18 +110,6 @@ func (r *Repository) AddExpense(ctx context.Context, userID models.UserID, expen
 	expensesAtOneDay.expenses = append(expensesAtOneDay.expenses, &expense)
 	expenses.byID[expense.ID] = &expense
 	return expense, nil
-}
-
-func (r *Repository) GetExpense(ctx context.Context, userID models.UserID, expenseID models.ExpenseID) (models.Expense, error) {
-	expenses := r.getUserExpenses(userID)
-	expenses.Lock()
-	defer expenses.Unlock()
-
-	e, ok := expenses.byID[expenseID]
-	if !ok {
-		return models.Expense{}, expense.ErrExpenseDoesNotExist
-	}
-	return *e, nil
 }
 
 func (r *Repository) GetExpensesByDate(ctx context.Context, userID models.UserID, date time.Time) ([]models.Expense, error) {

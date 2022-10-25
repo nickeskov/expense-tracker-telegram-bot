@@ -3,21 +3,24 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"flag"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/clients/tg"
+	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/database/postgres"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/config"
-	expenseRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/repository/inmemory"
+	expenseRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/repository/postgres"
 	expenseUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/usecase"
-	exrateInMemRepo "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate/repository/inmemory"
+	exchangeRatesRepo "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate/repository/postgres"
 	exrateUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate/usecase"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/providers"
-	userRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user/repository/inmemory"
+	userRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user/repository/postgres"
 	userUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user/usecase"
 )
 
@@ -35,11 +38,25 @@ func readConfig(path string) (*config.Service, error) {
 
 func main() {
 	flag.Parse()
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
 	cfg, err := readConfig(*configPath)
 	if err != nil {
 		log.Fatal("Config init failed:", err)
 	}
-	userRepo, err := userRepository.New()
+
+	db, err := sql.Open("pgx", cfg.Values().DBConnectionString)
+	if err != nil {
+		log.Fatal("Failed to open db: ", err)
+	}
+	if err := db.PingContext(ctx); err != nil {
+		log.Fatal("Failed to ping db: ", err)
+	}
+	dbDoer := postgres.NewDBDoer(db)
+
+	userRepo, err := userRepository.New(dbDoer)
 	if err != nil {
 		log.Fatal("Failed to create user repository:", err)
 	}
@@ -48,7 +65,7 @@ func main() {
 		log.Fatal("Failed to create user usecase:", err)
 	}
 
-	exrateRepo, err := exrateInMemRepo.New()
+	exrateRepo, err := exchangeRatesRepo.New(dbDoer)
 	if err != nil {
 		log.Fatal("Failed to create exchange rates repository:", err)
 	}
@@ -61,7 +78,7 @@ func main() {
 		log.Fatal("Failed to create exchange rates usecase:", err)
 	}
 
-	expRepo, err := expenseRepository.New()
+	expRepo, err := expenseRepository.New(dbDoer)
 	if err != nil {
 		log.Fatal("Failed to create expenses repository:", err)
 	}
@@ -75,13 +92,12 @@ func main() {
 		LogUpdates: cfg.Values().LogUpdates,
 		WhiteList:  cfg.Values().WhiteList,
 		BlackList:  cfg.Values().BlackList,
+		Debug:      cfg.Values().Debug,
 	}
 	cl, err := tg.NewWithOptions(cfg.Token(), cfg.Values().BaseCurrency, cfg.Values().SupportedCurrencies, expUC, userUC, opts)
 	if err != nil {
 		log.Fatal("Failed to init bot:", err)
 	}
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer cancel()
 	if interval := cfg.Values().ExchangeRatesUpdateInterval; interval != 0 {
 		providerDone, err := exrateUC.RunAutoUpdater(ctx, log.Default(), interval)
 		if err != nil {

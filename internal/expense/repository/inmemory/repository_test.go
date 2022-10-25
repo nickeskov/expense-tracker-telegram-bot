@@ -32,10 +32,6 @@ func Test_ExpenseRoundTrip(t *testing.T) {
 	_, err := r.AddExpense(ctx, userID, expected)
 	require.NoError(t, err)
 
-	actual, err := r.GetExpense(ctx, userID, expected.ID)
-	require.NoError(t, err)
-	require.Equal(t, expected, actual)
-
 	expensesByDate, err := r.GetExpensesByDate(ctx, userID, expected.Date)
 	require.NoError(t, err)
 	require.Len(t, expensesByDate, 1)

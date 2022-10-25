@@ -6,13 +6,9 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-type (
-	CurrencyCode   string
-	ExchangeRageID int64
-)
+type CurrencyCode string
 
 type ExchangeRate struct {
-	ID   ExchangeRageID
 	Code CurrencyCode
 	Rate decimal.Decimal
 	Date time.Time

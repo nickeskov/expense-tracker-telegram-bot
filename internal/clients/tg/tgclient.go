@@ -32,6 +32,7 @@ type Options struct {
 	LogUpdates bool
 	BlackList  []int64
 	WhiteList  []int64
+	Debug      bool
 	offline    bool
 }
 
@@ -63,6 +64,9 @@ func NewWithOptions(
 	if len(opts.BlackList) != 0 {
 		bot.Use(middleware.Blacklist(opts.BlackList...))
 	}
+	if opts.Debug {
+		bot.Use(debugMiddleware)
+	}
 	supportedCurr := make(map[models.CurrencyCode]struct{})
 	for _, code := range supported {
 		supportedCurr[code] = struct{}{}
@@ -88,22 +92,52 @@ func NewWithOptions(
 }
 
 const (
-	helloMsg           = "Hello!"
-	startAlreadyWeKnow = "We already know each other ;)"
-	startNowWeKnow     = "Hello! Now we know each other!"
-	unknownUserMsg     = "Hello! Please, press /start to introduce yourself."
-	noExpensesFoundMsg = "No expenses found."
-	helpMsg            = "" +
+	helloMsg                      = "Hello!"
+	startAlreadyWeKnowMsg         = "We already know each other ;)"
+	startNowWeKnowMsg             = "Hello! Now we know each other!"
+	unknownUserMsg                = "Hello! Please, press /start to introduce yourself."
+	noExpensesFoundMsg            = "No expenses found."
+	expensesAmountExceededMsg     = "Can't add expense. Expenses amount exceeded."
+	expenseAmountIsNotPositiveMsg = "Please, provide positive expense amount."
+	expenseAmountIsTooBigMsg      = "Expense amount is too big"
+	monthlyLimitIsNegativeMsg     = "Please, provide not negative limit amount or absense of amount."
+	monthlyLimitIsTooBigMsg       = "Monthly limit is too big."
+)
+
+const (
+	noneUserMonthlyLimitValue = "none"
+)
+
+func makeHelpMsg(baseCurr models.CurrencyCode) string {
+	const helpMsgFormat = "" +
 		"List of supported commands:\n" +
-		"/start - send hello and register new user with default selected currency\n" +
+		"/start - send hello and register new user with default selected currency %q\n" +
 		"/hello - send hello\n" +
 		"/help - print this help\n" +
 		"/currency - show selected currency or change it to the new one. Usage: /currency <currency - optional>\n" +
 		"/expense - create new expense. Usage: /expense <category - one word> <amount - float> <date - format 'yyyy.mm.dd'> <comment, optional>\n" +
 		"/report - summary report by categories since and till some dates. Usage: /report <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n" +
-		"/list - list expenses since and till some dates. Usage: /list <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n"
-	onTextDefaultMsg = "Unsupported action or command\n\n" + helpMsg
-)
+		"/list - list expenses since and till some dates. Usage: /list <since - format 'yyyy.mm.dd'> <till - format 'yyyy.mm.dd'>\n" +
+		"/limit - show expenses amount monthly limit in default currency %q or change it to another one. Usage: /limit <amount - float or '%s', optional>\n"
+	return fmt.Sprintf(helpMsgFormat, baseCurr, baseCurr, noneUserMonthlyLimitValue)
+}
+
+func makeDefaultMsg(baseCurr models.CurrencyCode) string {
+	return "Unsupported action or command\n\n" + makeHelpMsg(baseCurr)
+}
+
+func debugMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
+	return func(teleCtx telebot.Context) error {
+		if err := next(teleCtx); err != nil {
+			sendErr := teleCtx.Send(fmt.Sprintf("Oops, something went wrong: %v", err))
+			if sendErr != nil {
+				err = errors.Wrap(err, sendErr.Error())
+			}
+			return err
+		}
+		return nil
+	}
+}
 
 func createRequireArgsCountMiddleware(minArgsCount, maxArgsCount int) telebot.MiddlewareFunc {
 	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
@@ -150,14 +184,15 @@ func (c *Client) initHandlers(ctx context.Context) {
 		return teleCtx.Send(helloMsg)
 	})
 	c.bot.Handle("/help", func(teleCtx telebot.Context) error {
-		return teleCtx.Send(helpMsg)
+		return teleCtx.Send(makeHelpMsg(c.baseCurr))
 	})
 	c.bot.Handle("/currency", wrap(c.handleCurrencyCmd), checkUser, createRequireArgsCountMiddleware(0, 1))
 	c.bot.Handle("/expense", wrap(c.handleExpenseCmd), checkUser, createRequireArgsCountMiddleware(3, 258))
 	c.bot.Handle("/report", wrap(c.handleExpensesReportCmd), checkUser, createRequireArgsCountMiddleware(2, 2))
 	c.bot.Handle("/list", wrap(c.handleExpensesListCmd), checkUser, createRequireArgsCountMiddleware(2, 2))
+	c.bot.Handle("/limit", wrap(c.handleLimitCmd), checkUser, createRequireArgsCountMiddleware(0, 1))
 	c.bot.Handle(telebot.OnText, func(teleCtx telebot.Context) error {
-		return teleCtx.Send(onTextDefaultMsg)
+		return teleCtx.Send(makeDefaultMsg(c.baseCurr))
 	})
 }
 
@@ -178,12 +213,12 @@ func (c *Client) handleExpenseCmd(ctx context.Context, teleCtx telebotReducedCon
 
 	amount, err := decimal.NewFromString(strAmount)
 	if err != nil {
-		return teleCtx.Send(fmt.Sprint("Failed to parse amount:", err))
+		return teleCtx.Send(fmt.Sprintf("Failed to parse amount: %v", err))
 	}
 
 	day, err := time.Parse(dateLayout, date)
 	if err != nil {
-		return teleCtx.Send(fmt.Sprint("Failed to parse date:", err))
+		return teleCtx.Send(fmt.Sprintf("Failed to parse date: %v", err))
 	}
 
 	comment := strings.Join(commentWords, " ")
@@ -196,9 +231,24 @@ func (c *Client) handleExpenseCmd(ctx context.Context, teleCtx telebotReducedCon
 		Date:     day,
 		Comment:  comment,
 	}
+	if err := exp.Validate(); err != nil {
+		switch {
+		case errors.Is(err, models.ErrExpenseAmountTooBig):
+			return teleCtx.Send(expenseAmountIsTooBigMsg)
+		case errors.Is(err, models.ErrExpenseAmountIsNotPositive):
+			return teleCtx.Send(expenseAmountIsNotPositiveMsg)
+		default:
+			return errors.Wrapf(err, "unknown expense validation error")
+		}
+	}
 	userID := models.UserID(teleMsg.Sender.ID)
 	if _, err := c.expUC.AddExpense(ctx, userID, exp); err != nil {
-		return errors.Wrapf(err, "failed to create expense for userID=%d", userID)
+		switch {
+		case errors.Is(err, expense.ErrExpensesMonthlyLimitExcess):
+			return teleCtx.Send(expensesAmountExceededMsg)
+		default:
+			return errors.Wrapf(err, "failed to create expense for userID=%d", userID)
+		}
 	}
 	return teleCtx.Send("Expense successfully created")
 }
@@ -211,11 +261,11 @@ func (c *Client) handleExpensesReportCmd(ctx context.Context, teleCtx telebotRed
 	sinceStr, tillStr := args[0], args[1]
 	since, err := time.Parse(dateLayout, sinceStr)
 	if err != nil {
-		return teleCtx.Send(fmt.Sprint("Failed to parse since date:", err))
+		return teleCtx.Send(fmt.Sprintf("Failed to parse since date: %v", err))
 	}
 	till, err := time.Parse(dateLayout, tillStr)
 	if err != nil {
-		return teleCtx.Send(fmt.Sprint("Failed to parse till date:", err))
+		return teleCtx.Send(fmt.Sprintf("Failed to parse till date: %v", err))
 	}
 	userID := models.UserID(teleCtx.Message().Sender.ID)
 	report, err := c.expUC.GetExpensesSummaryByCategorySince(ctx, userID, since, till)
@@ -246,11 +296,11 @@ func (c *Client) handleExpensesListCmd(ctx context.Context, teleCtx telebotReduc
 	sinceStr, tillStr := args[0], args[1]
 	since, err := time.Parse(dateLayout, sinceStr)
 	if err != nil {
-		return teleCtx.Send(fmt.Sprint("Failed to parse since date:", err))
+		return teleCtx.Send(fmt.Sprintf("Failed to parse since date: %v", err))
 	}
 	till, err := time.Parse(dateLayout, tillStr)
 	if err != nil {
-		return teleCtx.Send(fmt.Sprint("Failed to parse till date:", err))
+		return teleCtx.Send(fmt.Sprintf("Failed to parse till date: %v", err))
 	}
 	userID := models.UserID(teleCtx.Message().Sender.ID)
 	expenses, err := c.expUC.GetExpensesAscendSinceTill(ctx, userID, since, till, maxExpensesList)
@@ -277,12 +327,12 @@ func (c *Client) handleStartCmd(ctx context.Context, teleCtx telebotReducedConte
 		return errors.Wrapf(err, "failed to check whether user with ID=%d exists or not", userID)
 	}
 	if exists {
-		return teleCtx.Send(startAlreadyWeKnow)
+		return teleCtx.Send(startAlreadyWeKnowMsg)
 	}
 	if _, err := c.userUC.CreateUser(ctx, u); err != nil {
 		return errors.Wrapf(err, "failed to create user with ID=%d if not exist", userID)
 	}
-	return teleCtx.Send(startNowWeKnow)
+	return teleCtx.Send(startNowWeKnowMsg)
 }
 
 func (c *Client) handleCurrencyCmd(ctx context.Context, teleCtx telebotReducedContext) error {
@@ -304,6 +354,44 @@ func (c *Client) handleCurrencyCmd(ctx context.Context, teleCtx telebotReducedCo
 		return errors.Wrapf(err, "failed to change currency to %q for user with ID=%d)", currency, userID)
 	}
 	return teleCtx.Send(fmt.Sprintf("Currency successfully changed to %q", currency))
+}
+
+func (c *Client) handleLimitCmd(ctx context.Context, teleCtx telebotReducedContext) error {
+	args := teleCtx.Args()
+	userID := models.UserID(teleCtx.Message().Sender.ID)
+	if len(args) == 0 {
+		limit, err := c.userUC.GetUserMonthlyLimit(ctx, userID)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get monthly limit for userID=%d", userID)
+		}
+		limitArg := noneUserMonthlyLimitValue
+		if limit != nil {
+			limitArg = fmt.Sprintf("%v", *limit)
+		}
+		return teleCtx.Send(fmt.Sprintf("Your monthly limit is %q in %q", limitArg, c.baseCurr))
+	}
+	var limit *decimal.Decimal
+	if limitArg := args[0]; limitArg != noneUserMonthlyLimitValue {
+		limitValue, err := decimal.NewFromString(limitArg)
+		if err != nil {
+			return teleCtx.Send(fmt.Sprintf("Failed to parse monthly limit: %v", err))
+		}
+		limit = &limitValue
+	}
+	if err := models.ValidateUserMonthlyLimit(limit); err != nil {
+		switch {
+		case errors.Is(err, models.ErrUserMonthlyLimitTooBig):
+			return teleCtx.Send(monthlyLimitIsTooBigMsg)
+		case errors.Is(err, models.ErrUserMonthlyLimitIsNegative):
+			return teleCtx.Send(monthlyLimitIsNegativeMsg)
+		default:
+			return errors.Wrapf(err, "unknown user monthly limit validation error")
+		}
+	}
+	if err := c.userUC.SetUserMonthlyLimit(ctx, userID, limit); err != nil {
+		return errors.Wrapf(err, "failed to set monthly limit for userID=%d", userID)
+	}
+	return teleCtx.Send("Monthly limit successfully set")
 }
 
 func (c *Client) Start(ctx context.Context) {
