@@ -146,51 +146,6 @@ func makeDefaultMsg(baseCurr models.CurrencyCode) string {
 	return "Unsupported action or command\n\n" + makeHelpMsg(baseCurr)
 }
 
-func debugMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
-	return func(teleCtx telebot.Context) error {
-		if err := next(teleCtx); err != nil {
-			sendErr := teleCtx.Send(fmt.Sprintf("Oops, something went wrong: %v", err))
-			if sendErr != nil {
-				err = errors.Wrap(err, sendErr.Error())
-			}
-			return err
-		}
-		return nil
-	}
-}
-
-func createRequireArgsCountMiddleware(minArgsCount, maxArgsCount int) telebot.MiddlewareFunc {
-	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
-		return func(teleCtx telebot.Context) error {
-			args := teleCtx.Args()
-			l := len(args)
-			if l < minArgsCount {
-				return teleCtx.Send(fmt.Sprintf("Not enough arguments: minumum required %d, provided %d", minArgsCount, l))
-			}
-			if l > maxArgsCount {
-				return teleCtx.Send(fmt.Sprintf("Too many arguments: maximum allowed %d, provided %d", maxArgsCount, l))
-			}
-			return next(teleCtx)
-		}
-	}
-}
-
-func createIsUserExistsMiddleware(ctx context.Context, userUC user.UseCase) telebot.MiddlewareFunc {
-	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
-		return func(teleCtx telebot.Context) error {
-			userID := models.UserID(teleCtx.Message().Sender.ID)
-			exists, err := userUC.IsUserExists(ctx, userID)
-			if err != nil {
-				return errors.Wrapf(err, "failed to check in middleware whether the user with ID=%d exists", userID)
-			}
-			if exists {
-				return next(teleCtx)
-			}
-			return teleCtx.Send(unknownUserMsg)
-		}
-	}
-}
-
 func (c *Client) initHandlers(ctx context.Context) {
 	checkUser := createIsUserExistsMiddleware(ctx, c.userUC)
 
