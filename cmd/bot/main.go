@@ -65,6 +65,12 @@ func main() {
 	if err := db.PingContext(ctx); err != nil {
 		zapLogger.Fatal("Failed to ping db", zap.Error(err))
 	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			zapLogger.Error("Failed to close db", zap.Error(err))
+		}
+	}()
+
 	dbDoer := postgres.NewDBDoer(db)
 
 	userRepo, err := userRepository.New(dbDoer)
