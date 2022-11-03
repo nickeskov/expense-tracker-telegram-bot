@@ -3,7 +3,6 @@ package tg
 import (
 	"context"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user"
+	"go.uber.org/zap"
 	"gopkg.in/telebot.v3"
 	"gopkg.in/telebot.v3/middleware"
 )
@@ -24,11 +24,11 @@ type Client struct {
 	supportedCurrSlice []models.CurrencyCode
 	expUC              expense.UseCase
 	userUC             user.UseCase
-	logger             *log.Logger
+	logger             *zap.Logger
 }
 
 type Options struct {
-	Logger     *log.Logger
+	Logger     *zap.Logger
 	LogUpdates bool
 	BlackList  []int64
 	WhiteList  []int64
@@ -42,21 +42,41 @@ func NewWithOptions(
 	expUC expense.UseCase, userUC user.UseCase,
 	opts Options,
 ) (*Client, error) {
+	logger := opts.Logger
+	if logger == nil {
+		logger = zap.L()
+	}
+
 	pref := telebot.Settings{
 		Token:   token,
 		Poller:  &telebot.LongPoller{Timeout: 5 * time.Second},
 		Offline: opts.offline, // used for testing purposes
+		OnError: func(err error, teleCtx telebot.Context) {
+			var (
+				updateID  = teleCtx.Update().ID
+				messageID *int
+				senderID  *int64
+			)
+			if msg := teleCtx.Message(); msg != nil {
+				messageID = &msg.ID
+			}
+			if sender := teleCtx.Sender(); sender != nil {
+				senderID = &sender.ID
+			}
+			logger.Error("Unknown error occurred in bot handler",
+				zap.Int("update_id", updateID),
+				zap.Intp("message_id", messageID),
+				zap.Int64p("sender_id", senderID),
+				zap.Error(err),
+			)
+		},
 	}
 	bot, err := telebot.NewBot(pref)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating bot")
 	}
-	logger := opts.Logger
-	if logger == nil {
-		logger = log.Default()
-	}
 	if opts.LogUpdates {
-		bot.Use(middleware.Logger(logger))
+		bot.Use(createIncomingUpdatesLoggerMiddleware(logger))
 	}
 	if len(opts.WhiteList) != 0 {
 		bot.Use(middleware.Whitelist(opts.WhiteList...))
@@ -172,28 +192,33 @@ func createIsUserExistsMiddleware(ctx context.Context, userUC user.UseCase) tele
 }
 
 func (c *Client) initHandlers(ctx context.Context) {
-	wrap := func(handler func(_ context.Context, reducedCtx telebotReducedContext) error) func(telebot.Context) error {
-		return func(teleCtx telebot.Context) error {
-			return handler(ctx, teleCtx)
-		}
-	}
 	checkUser := createIsUserExistsMiddleware(ctx, c.userUC)
 
-	c.bot.Handle("/start", wrap(c.handleStartCmd), createRequireArgsCountMiddleware(0, 0))
-	c.bot.Handle("/hello", func(teleCtx telebot.Context) error {
+	c.handle(ctx, "/hello", func(_ context.Context, teleCtx telebotReducedContext) error {
 		return teleCtx.Send(helloMsg)
 	})
-	c.bot.Handle("/help", func(teleCtx telebot.Context) error {
+	c.handle(ctx, "/help", func(_ context.Context, teleCtx telebotReducedContext) error {
 		return teleCtx.Send(makeHelpMsg(c.baseCurr))
 	})
-	c.bot.Handle("/currency", wrap(c.handleCurrencyCmd), checkUser, createRequireArgsCountMiddleware(0, 1))
-	c.bot.Handle("/expense", wrap(c.handleExpenseCmd), checkUser, createRequireArgsCountMiddleware(3, 258))
-	c.bot.Handle("/report", wrap(c.handleExpensesReportCmd), checkUser, createRequireArgsCountMiddleware(2, 2))
-	c.bot.Handle("/list", wrap(c.handleExpensesListCmd), checkUser, createRequireArgsCountMiddleware(2, 2))
-	c.bot.Handle("/limit", wrap(c.handleLimitCmd), checkUser, createRequireArgsCountMiddleware(0, 1))
-	c.bot.Handle(telebot.OnText, func(teleCtx telebot.Context) error {
+	c.handle(ctx, telebot.OnText, func(_ context.Context, teleCtx telebotReducedContext) error {
 		return teleCtx.Send(makeDefaultMsg(c.baseCurr))
 	})
+	c.handle(ctx, "/start", c.handleStartCmd, createRequireArgsCountMiddleware(0, 0))
+	c.handle(ctx, "/currency", c.handleCurrencyCmd, checkUser, createRequireArgsCountMiddleware(0, 1))
+	c.handle(ctx, "/expense", c.handleExpenseCmd, checkUser, createRequireArgsCountMiddleware(3, 258))
+	c.handle(ctx, "/report", c.handleExpensesReportCmd, checkUser, createRequireArgsCountMiddleware(2, 2))
+	c.handle(ctx, "/list", c.handleExpensesListCmd, checkUser, createRequireArgsCountMiddleware(2, 2))
+	c.handle(ctx, "/limit", c.handleLimitCmd, checkUser, createRequireArgsCountMiddleware(0, 1))
+}
+
+func (c *Client) handle(ctx context.Context, endpoint string, handler func(context.Context, telebotReducedContext) error, m ...telebot.MiddlewareFunc) {
+	logTriggeredHandler := createTriggeredHandlerLoggerMiddleware(c.logger, endpoint)
+	wrap := func(inner func(context.Context, telebotReducedContext) error) telebot.HandlerFunc {
+		return logTriggeredHandler(func(teleCtx telebot.Context) error {
+			return inner(ctx, teleCtx)
+		})
+	}
+	c.bot.Handle(endpoint, wrap(handler), m...)
 }
 
 type telebotReducedContext interface {

@@ -2,13 +2,13 @@ package usecase
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/providers"
+	"go.uber.org/zap"
 )
 
 type UseCase struct {
@@ -55,7 +55,7 @@ func (u *UseCase) fetchAndUpdateRates(ctx context.Context, date time.Time) ([]mo
 	return rates, nil
 }
 
-func (u *UseCase) RunAutoUpdater(ctx context.Context, logger *log.Logger, interval time.Duration) (<-chan struct{}, error) {
+func (u *UseCase) RunAutoUpdater(ctx context.Context, logger *zap.Logger, interval time.Duration) (<-chan struct{}, error) {
 	if interval <= 0 {
 		return nil, errors.New("negative or zero auto update interval duration")
 	}
@@ -64,17 +64,17 @@ func (u *UseCase) RunAutoUpdater(ctx context.Context, logger *log.Logger, interv
 		defer func() {
 			ticker.Stop()
 			close(done)
-			logger.Printf("Exchange rates auto updater successfully stopped")
+			logger.Info("Exchange rates auto updater successfully stopped")
 		}()
-		logger.Printf("Staring exchange rates auto updater with interval=%v", interval)
+		logger.Info("Staring exchange rates auto updater with specific interval", zap.Duration("interval", interval))
 		for {
 			select {
 			case tick := <-ticker.C:
 				rates, err := u.fetchAndUpdateRates(ctx, tick.In(time.UTC))
 				if err != nil {
-					logger.Printf("Rates auto updater: %v", err)
+					logger.Error("Error occurred in rates auto updater", zap.Error(err))
 				} else {
-					logger.Printf("Fetched and saved new %d exchange rates", len(rates))
+					logger.Info("Fetched and saved new exchange rates", zap.Int("count", len(rates)))
 				}
 			case <-ctx.Done():
 				return
