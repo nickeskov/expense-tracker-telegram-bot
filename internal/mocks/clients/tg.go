@@ -80,3 +80,31 @@ func (mr *MocktelebotReducedContextMockRecorder) Send(what interface{}, opts ...
 	varargs := append([]interface{}{what}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MocktelebotReducedContext)(nil).Send), varargs...)
 }
+
+// Sender mocks base method.
+func (m *MocktelebotReducedContext) Sender() *telebot.User {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Sender")
+	ret0, _ := ret[0].(*telebot.User)
+	return ret0
+}
+
+// Sender indicates an expected call of Sender.
+func (mr *MocktelebotReducedContextMockRecorder) Sender() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sender", reflect.TypeOf((*MocktelebotReducedContext)(nil).Sender))
+}
+
+// Update mocks base method.
+func (m *MocktelebotReducedContext) Update() telebot.Update {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update")
+	ret0, _ := ret[0].(telebot.Update)
+	return ret0
+}
+
+// Update indicates an expected call of Update.
+func (mr *MocktelebotReducedContextMockRecorder) Update() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MocktelebotReducedContext)(nil).Update))
+}

@@ -7,15 +7,19 @@ require (
 	github.com/google/btree v1.1.2
 	github.com/google/uuid v1.1.2
 	github.com/jackc/pgx/v5 v5.0.3
+	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.13.1
 	github.com/shopspring/decimal v1.3.1
+	github.com/uber/jaeger-client-go v2.30.0+incompatible
+	github.com/uber/jaeger-lib v2.4.1+incompatible
 	go.uber.org/zap v1.23.0
 	gopkg.in/telebot.v3 v3.1.2
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
+	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect

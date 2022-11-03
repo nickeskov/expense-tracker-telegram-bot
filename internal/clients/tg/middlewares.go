@@ -8,12 +8,48 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user"
 	"go.uber.org/zap"
 	"gopkg.in/telebot.v3"
 )
+
+const (
+	updateKeyName    = "update"
+	endpointKeyName  = "endpoint"
+	updateIDKeyName  = "update_id"
+	messageIDKeyName = "message_id"
+	senderIDKeyName  = "sender_id"
+)
+
+func createEndpointTracingMiddleware(endpoint string) func(endpointHandler) endpointHandler {
+	operationName := fmt.Sprintf("bot handler '%s'", botEndpointString(endpoint))
+	return func(next endpointHandler) endpointHandler {
+		return func(ctx context.Context, teleCtx telebotReducedContext) (err error) {
+			span, ctx := opentracing.StartSpanFromContext(ctx, operationName)
+			defer func() {
+				ext.Error.Set(span, err != nil)
+				span.Finish()
+			}()
+
+			updateID := teleCtx.Update().ID
+			span.SetTag(updateIDKeyName, updateID)
+
+			if msg := teleCtx.Message(); msg != nil {
+				messageID := msg.ID
+				span.SetTag(messageIDKeyName, messageID)
+			}
+			if sender := teleCtx.Sender(); sender != nil {
+				senderID := sender.ID
+				span.SetTag(senderIDKeyName, senderID)
+			}
+			return next(ctx, teleCtx)
+		}
+	}
+}
 
 func botEndpointString(endpoint string) string {
 	return strings.Trim(strconv.Quote(endpoint), "\"")
@@ -53,10 +89,10 @@ func createIncomingUpdatesLoggerMiddleware(logger *zap.Logger) telebot.Middlewar
 				senderID = &sender.ID
 			}
 			logger.Info("Received incoming update",
-				zap.Int("update_id", updateID),
-				zap.Intp("message_id", messageID),
-				zap.Int64p("sender_id", senderID),
-				zap.ByteString("update", data),
+				zap.Int(updateIDKeyName, updateID),
+				zap.Intp(messageIDKeyName, messageID),
+				zap.Int64p(senderIDKeyName, senderID),
+				zap.ByteString(updateKeyName, data),
 			)
 			return next(teleCtx)
 		}
@@ -79,10 +115,10 @@ func createTriggeredHandlerLoggerMiddleware(logger *zap.Logger, endpoint string)
 				senderID = &sender.ID
 			}
 			logger.Info("Endpoint triggered with update",
-				zap.String("endpoint", stringEndpoint),
-				zap.Int("update_id", updateID),
-				zap.Intp("message_id", messageID),
-				zap.Int64p("sender_id", senderID),
+				zap.String(endpointKeyName, stringEndpoint),
+				zap.Int(updateIDKeyName, updateID),
+				zap.Intp(messageIDKeyName, messageID),
+				zap.Int64p(senderIDKeyName, senderID),
 			)
 			return next(teleCtx)
 		}

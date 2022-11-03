@@ -171,9 +171,11 @@ type endpointHandler func(context.Context, telebotReducedContext) error
 func (c *Client) handle(ctx context.Context, endpoint string, handler endpointHandler, m ...telebot.MiddlewareFunc) {
 	logTriggeredHandler := createTriggeredHandlerLoggerMiddleware(c.logger, endpoint)
 	metricsMiddleware := createEndpointMetricsMiddleware(endpoint)
+	tracingMiddleware := createEndpointTracingMiddleware(endpoint)
 	wrap := func(inner func(context.Context, telebotReducedContext) error) telebot.HandlerFunc {
+		innerWithTracing := tracingMiddleware(inner)
 		return logTriggeredHandler(metricsMiddleware(func(teleCtx telebot.Context) error {
-			return inner(ctx, teleCtx)
+			return innerWithTracing(ctx, teleCtx)
 		}))
 	}
 	c.bot.Handle(endpoint, wrap(handler), m...)
@@ -182,7 +184,9 @@ func (c *Client) handle(ctx context.Context, endpoint string, handler endpointHa
 type telebotReducedContext interface {
 	Args() []string
 	Send(what interface{}, opts ...interface{}) error
+	Update() telebot.Update
 	Message() *telebot.Message
+	Sender() *telebot.User
 }
 
 const dateLayout = "2006.01.02"
