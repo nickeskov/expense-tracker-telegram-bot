@@ -166,12 +166,15 @@ func (c *Client) initHandlers(ctx context.Context) {
 	c.handle(ctx, "/limit", c.handleLimitCmd, checkUser, createRequireArgsCountMiddleware(0, 1))
 }
 
-func (c *Client) handle(ctx context.Context, endpoint string, handler func(context.Context, telebotReducedContext) error, m ...telebot.MiddlewareFunc) {
+type endpointHandler func(context.Context, telebotReducedContext) error
+
+func (c *Client) handle(ctx context.Context, endpoint string, handler endpointHandler, m ...telebot.MiddlewareFunc) {
 	logTriggeredHandler := createTriggeredHandlerLoggerMiddleware(c.logger, endpoint)
+	metricsMiddleware := createEndpointMetricsMiddleware(endpoint)
 	wrap := func(inner func(context.Context, telebotReducedContext) error) telebot.HandlerFunc {
-		return logTriggeredHandler(func(teleCtx telebot.Context) error {
+		return logTriggeredHandler(metricsMiddleware(func(teleCtx telebot.Context) error {
 			return inner(ctx, teleCtx)
-		})
+		}))
 	}
 	c.bot.Handle(endpoint, wrap(handler), m...)
 }

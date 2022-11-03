@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
@@ -13,6 +14,25 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/telebot.v3"
 )
+
+func botEndpointString(endpoint string) string {
+	return strings.Trim(strconv.Quote(endpoint), "\"")
+}
+
+func createEndpointMetricsMiddleware(endpoint string) telebot.MiddlewareFunc {
+	stringEndpoint := botEndpointString(endpoint)
+	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
+		return func(teleCtx telebot.Context) error {
+			start := time.Now()
+			err := next(teleCtx)
+			duration := time.Since(start)
+			errStatus := strconv.FormatBool(err != nil)
+			inFlightRequests.WithLabelValues(stringEndpoint, errStatus).Inc()
+			inFlightRequestsDuration.WithLabelValues(stringEndpoint, errStatus).Observe(duration.Seconds())
+			return err
+		}
+	}
+}
 
 func createIncomingUpdatesLoggerMiddleware(logger *zap.Logger) telebot.MiddlewareFunc {
 	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
@@ -44,7 +64,7 @@ func createIncomingUpdatesLoggerMiddleware(logger *zap.Logger) telebot.Middlewar
 }
 
 func createTriggeredHandlerLoggerMiddleware(logger *zap.Logger, endpoint string) telebot.MiddlewareFunc {
-	stringEndpoint := strings.Trim(strconv.Quote(endpoint), "\"")
+	stringEndpoint := botEndpointString(endpoint)
 	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
 		return func(teleCtx telebot.Context) error {
 			var (
