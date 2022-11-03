@@ -64,6 +64,17 @@ func main() {
 	defer func() {
 		_ = zapLogger.Sync()
 	}()
+	if serviceName := cfg.Values().ServiceNameTracing; serviceName != "" {
+		flusher, err := utils.InitTracing(serviceName, zapLogger)
+		if err != nil {
+			zapLogger.Fatal("Failed to init tracing", zap.Error(err))
+		}
+		defer func() {
+			if err := flusher.Close(); err != nil {
+				zapLogger.Error("Failed to flush tracing buffers", zap.Error(err))
+			}
+		}()
+	}
 
 	db, err := sql.Open("pgx", cfg.Values().DBConnectionString)
 	if err != nil {
