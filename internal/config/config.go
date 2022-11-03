@@ -20,6 +20,7 @@ type Values struct {
 	WhiteList                   []int64               `yaml:"white-list,flow"`
 	BlackList                   []int64               `yaml:"black-list,flow"`
 	DBConnectionString          string                `yaml:"db-connection-string"`
+	HTTPEndpoint                string                `yaml:"http-endpoint"`
 }
 
 type config struct {

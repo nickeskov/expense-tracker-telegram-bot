@@ -6,12 +6,15 @@ import (
 	"database/sql"
 	"flag"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/clients/tg"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/database/postgres"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/utils"
@@ -24,6 +27,10 @@ import (
 	userRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user/repository/postgres"
 	userUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user/usecase"
 	"go.uber.org/zap"
+)
+
+const (
+	defaultTimeout = 5 * time.Second
 )
 
 var (
@@ -49,7 +56,7 @@ func main() {
 		log.Fatal("Config init failed: ", err)
 	}
 
-	zapLogger, _, err := utils.SetupZapLogger(cfg.Values().DevLogger, cfg.Values().LogLevel)
+	zapLogger, al, err := utils.SetupZapLogger(cfg.Values().DevLogger, cfg.Values().LogLevel)
 	if err != nil {
 		log.Fatal("Failed to setup zap logger: ", err)
 	}
@@ -70,6 +77,27 @@ func main() {
 			zapLogger.Error("Failed to close db", zap.Error(err))
 		}
 	}()
+	if endpoint := cfg.Values().HTTPEndpoint; endpoint != "" {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		mux.Handle("/log/level", al)
+		s := &http.Server{Addr: endpoint, Handler: mux, ReadHeaderTimeout: defaultTimeout, ReadTimeout: defaultTimeout}
+		endpointField := zap.String("endpoint", endpoint)
+		go func() {
+			zapLogger.Info("Starting HTTP API", endpointField)
+			if err := s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				zapLogger.Fatal("Failed to start HTTP API", zap.Error(err))
+			}
+			zapLogger.Info("HTTP API successfully stopped", endpointField)
+		}()
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+			defer cancel()
+			if err := s.Shutdown(ctx); err != nil {
+				zapLogger.Error("Failed to shutdown HTTP API", zap.Error(err), endpointField)
+			}
+		}()
+	}
 
 	dbDoer := postgres.NewDBDoer(db)
 
