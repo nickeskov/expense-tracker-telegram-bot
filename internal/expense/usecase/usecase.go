@@ -4,12 +4,23 @@ import (
 	"context"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user"
+)
+
+const (
+	userIDSpanTagKey            = "user_id"
+	sinceUnixMillisSpanTagKey   = "since_unix_ms"
+	tillUnixMillisSpanTagKey    = "till_unix_ms"
+	dateUnixMillisSpanTagKey    = "date_unix_ms"
+	handlerCallsCountSpanTagKey = "handler_call_count"
+	currencyCodeSpanTagKey      = "currency_code"
 )
 
 type UseCase struct {
@@ -23,7 +34,14 @@ func New(baseCurrency models.CurrencyCode, expRepo expense.Repository, userRepo 
 	return &UseCase{baseCurrency: baseCurrency, expRepo: expRepo, userRepo: userRepo, exrateRepo: exrateRepo}, nil
 }
 
-func (u *UseCase) AddExpense(ctx context.Context, userID models.UserID, exp models.Expense) (models.Expense, error) {
+func (u *UseCase) AddExpense(ctx context.Context, userID models.UserID, exp models.Expense) (_ models.Expense, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "AddExpense")
+	defer func() {
+		ext.Error.Set(span, err != nil)
+		span.Finish()
+	}()
+	span.SetTag(userIDSpanTagKey, userID)
+
 	if err := exp.Validate(); err != nil {
 		return models.Expense{}, errors.Wrap(err, "expense validation failed")
 	}
@@ -46,7 +64,14 @@ func (u *UseCase) AddExpense(ctx context.Context, userID models.UserID, exp mode
 	}
 	// expense happened in the current month
 	var out models.Expense
-	err = u.expRepo.Isolated(ctx, func(ctx context.Context) error {
+	err = u.expRepo.Isolated(ctx, func(ctx context.Context) (err error) {
+		span, ctx := opentracing.StartSpanFromContext(ctx, "expRepo.Isolated")
+		defer func() {
+			ext.Error.Set(span, err != nil)
+			span.Finish()
+		}()
+		span.SetTag(userIDSpanTagKey, userID)
+
 		limit, err := u.userRepo.GetUserMonthlyLimit(ctx, userID)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get user montly limit by userID=%q", userID)
@@ -114,17 +139,38 @@ func (u *UseCase) getUserExpensesSumByMonth(ctx context.Context, userID models.U
 	return sum, nil
 }
 
-func (u *UseCase) handleExpensesAscendSinceTill(ctx context.Context, userID models.UserID, since, till time.Time, handler func(expense *models.Expense) bool) error {
+func (u *UseCase) handleExpensesAscendSinceTill(ctx context.Context, userID models.UserID, since, till time.Time, handler func(expense *models.Expense) bool) (err error) {
+	var handlerCalls int
+	span, ctx := opentracing.StartSpanFromContext(ctx, "handleExpensesAscendSinceTill")
+	defer func() {
+		span.SetTag(handlerCallsCountSpanTagKey, handlerCalls)
+		ext.Error.Set(span, err != nil)
+		span.Finish()
+	}()
+	span.SetTag(userIDSpanTagKey, userID)
+	span.SetTag(sinceUnixMillisSpanTagKey, since.UnixMilli())
+	span.SetTag(tillUnixMillisSpanTagKey, till.UnixMilli())
+
 	curr, err := u.userRepo.GetUserCurrency(ctx, userID)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get selected user currency by userID=%d", userID)
 	}
-	var (
-		iterErr error
-		iter    = handler
-	)
+	var iterErr error
+	iter := func(expense *models.Expense) bool {
+		handlerCalls++
+		return handler(expense)
+	}
 	if curr != u.baseCurrency {
+		inner := iter
 		iter = func(expense *models.Expense) bool {
+			span, ctx := opentracing.StartSpanFromContext(ctx, "exrateRepo.GetRate")
+			defer func() {
+				ext.Error.Set(span, iterErr != nil)
+				span.Finish()
+			}()
+			span.SetTag(dateUnixMillisSpanTagKey, expense.Date.UnixMilli())
+			span.SetTag(currencyCodeSpanTagKey, curr)
+
 			rate, err := u.exrateRepo.GetRate(ctx, curr, expense.Date)
 			if err != nil {
 				iterErr = errors.Wrapf(err, "failed to get exchange rate for currency=%q at time=%v", curr, expense.Date)
@@ -132,7 +178,7 @@ func (u *UseCase) handleExpensesAscendSinceTill(ctx context.Context, userID mode
 			}
 			exp := *expense
 			exp.Amount = rate.ConvertFromBase(exp.Amount)
-			return handler(&exp)
+			return inner(&exp)
 		}
 	}
 	err = u.expRepo.GetExpensesAscendSinceTill(ctx, userID, since, till, iter)
