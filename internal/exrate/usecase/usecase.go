@@ -4,11 +4,19 @@ import (
 	"context"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/providers"
 	"go.uber.org/zap"
+)
+
+const (
+	currencyCodeSpanTagKey   = "currency_code"
+	ratesCountSpanTagKey     = "rates_count"
+	dateUnixMillisSpanTagKey = "date_unix_ms"
 )
 
 type UseCase struct {
@@ -23,7 +31,15 @@ func New(repo exrate.Repository, provider providers.ExchangeRatesProvider) (*Use
 	}, nil
 }
 
-func (u *UseCase) GetRate(ctx context.Context, curr models.CurrencyCode, date time.Time) (models.ExchangeRate, error) {
+func (u *UseCase) GetRate(ctx context.Context, curr models.CurrencyCode, date time.Time) (_ models.ExchangeRate, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "GetRate")
+	defer func() {
+		ext.Error.Set(span, err != nil)
+		span.Finish()
+	}()
+	span.SetTag(currencyCodeSpanTagKey, curr)
+	span.SetTag(dateUnixMillisSpanTagKey, date.UnixMilli())
+
 	rate, err := u.repo.GetRate(ctx, curr, date)
 	if err != nil {
 		if !errors.Is(err, exrate.ErrDoesNotExist) {
@@ -40,16 +56,30 @@ func (u *UseCase) GetRate(ctx context.Context, curr models.CurrencyCode, date ti
 	return rate, nil
 }
 
-func (u *UseCase) AddOrUpdateRates(ctx context.Context, rates ...models.ExchangeRate) error {
+func (u *UseCase) AddOrUpdateRates(ctx context.Context, rates ...models.ExchangeRate) (err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "AddOrUpdateRates")
+	defer func() {
+		ext.Error.Set(span, err != nil)
+		span.Finish()
+	}()
+	span.SetTag(ratesCountSpanTagKey, len(rates))
+
 	return u.repo.AddOrUpdateRates(ctx, rates...)
 }
 
-func (u *UseCase) fetchAndUpdateRates(ctx context.Context, date time.Time) ([]models.ExchangeRate, error) {
+func (u *UseCase) fetchAndUpdateRates(ctx context.Context, date time.Time) (_ []models.ExchangeRate, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "fetchAndUpdateRates")
+	defer func() {
+		ext.Error.Set(span, err != nil)
+		span.Finish()
+	}()
+	span.SetTag(dateUnixMillisSpanTagKey, date.UnixMilli())
+
 	rates, err := u.provider.FetchExchangeRates(ctx, date)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to fetch exchange rates at time=%v", date)
 	}
-	if err := u.repo.AddOrUpdateRates(ctx, rates...); err != nil {
+	if err := u.AddOrUpdateRates(ctx, rates...); err != nil {
 		return nil, errors.Wrapf(err, "failed to save fetched rates at time=%v", date)
 	}
 	return rates, nil
@@ -70,7 +100,7 @@ func (u *UseCase) RunAutoUpdater(ctx context.Context, logger *zap.Logger, interv
 		for {
 			select {
 			case tick := <-ticker.C:
-				rates, err := u.fetchAndUpdateRates(ctx, tick.In(time.UTC))
+				rates, err := u.fetchAndUpdateRates(ctx, tick.UTC())
 				if err != nil {
 					logger.Error("Error occurred in rates auto updater", zap.Error(err))
 				} else {
