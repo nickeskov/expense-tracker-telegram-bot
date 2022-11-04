@@ -7,12 +7,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/telebot.v3"
 	"gopkg.in/telebot.v3/middleware"
 )
@@ -269,7 +272,10 @@ func (c *Client) handleExpensesReportCmd(ctx context.Context, teleCtx telebotRed
 	return teleCtx.Send(msg)
 }
 
-const maxExpensesList = 100
+const (
+	maxExpensesList = 100
+	limitSenders    = 8
+)
 
 func printExpense(exp models.Expense) string {
 	return fmt.Sprintf("%s %v %s %s", exp.Category, exp.Amount, exp.Date.Format(dateLayout), exp.Comment)
@@ -297,13 +303,29 @@ func (c *Client) handleExpensesListCmd(ctx context.Context, teleCtx telebotReduc
 	if len(expenses) == 0 {
 		return teleCtx.Send(noExpensesFoundMsg)
 	}
-	for _, exp := range expenses {
-		msg := printExpense(exp)
-		if err := teleCtx.Send(msg); err != nil {
-			return errors.Wrapf(err, "failed to send for userID=%d category info '%s'", userID, msg)
-		}
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.SetLimit(limitSenders)
+	for i := range expenses {
+		exp := expenses[i]
+		eg.Go(func() (err error) {
+			span, ctx := opentracing.StartSpanFromContext(ctx, "sendExpenses")
+			defer func() {
+				ext.Error.Set(span, err != nil)
+				span.Finish()
+			}()
+			select {
+			default:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			msg := printExpense(exp)
+			if err := teleCtx.Send(msg); err != nil {
+				return errors.Wrapf(err, "failed to send for userID=%d category info '%s'", userID, msg)
+			}
+			return nil
+		})
 	}
-	return nil
+	return eg.Wait()
 }
 
 func (c *Client) handleStartCmd(ctx context.Context, teleCtx telebotReducedContext) error {

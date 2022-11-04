@@ -14,6 +14,7 @@ require (
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
 	github.com/uber/jaeger-lib v2.4.1+incompatible
 	go.uber.org/zap v1.23.0
+	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	gopkg.in/telebot.v3 v3.1.2
 	gopkg.in/yaml.v3 v3.0.1
 )
