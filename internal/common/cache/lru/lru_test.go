@@ -8,7 +8,9 @@ import (
 	cachePkg "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/cache"
 )
 
-func newStringCache(capacity int, keyval ...string) (*Cache[string, string], error) {
+type lruStringCache = *Cache[string, string]
+
+func newSafeStringCache(capacity int, keyval ...string) (cachePkg.ThreadSafeCache[string, string, lruStringCache], error) {
 	cache, err := New[string, string](capacity)
 	if err != nil {
 		return nil, err
@@ -18,7 +20,7 @@ func newStringCache(capacity int, keyval ...string) (*Cache[string, string], err
 			return nil, err
 		}
 	}
-	return cache, nil
+	return cachePkg.NewThreadSafeCache[string, string, lruStringCache](cache), nil
 }
 
 func TestCache_Get(t *testing.T) {
@@ -32,7 +34,7 @@ func TestCache_Get(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(strconv.Itoa(i+1), func(t *testing.T) {
-			cache, err := newStringCache(test.cap, test.keyVal...)
+			cache, err := newSafeStringCache(test.cap, test.keyVal...)
 			require.NoError(t, err)
 			keyVal := test.keyVal
 			if test.cap < len(keyVal) {
@@ -48,9 +50,13 @@ func TestCache_Get(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, ok)
 				require.Equal(t, s, val)
-				front := cache.l.Front().Value.(*item[string, string])
-				require.Equal(t, s, front.Key)
-				require.Equal(t, s, front.Value)
+				err = cache.Map(func(cache lruStringCache) error {
+					front := cache.l.Front().Value.(*item[string, string])
+					require.Equal(t, s, front.Key)
+					require.Equal(t, s, front.Value)
+					return nil
+				})
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -71,7 +77,7 @@ func TestCache_Set(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(strconv.Itoa(i+1), func(t *testing.T) {
-			cache, err := newStringCache(test.cap, test.keyVal...)
+			cache, err := newSafeStringCache(test.cap, test.keyVal...)
 			if test.err != nil {
 				require.ErrorIs(t, err, test.err)
 				return
@@ -79,19 +85,22 @@ func TestCache_Set(t *testing.T) {
 			require.NoError(t, err)
 
 			keyVal := test.keyVal
+			err = cache.Map(func(cache lruStringCache) error {
+				back := keyVal[len(keyVal)-test.cap]
+				backV := cache.l.Back().Value.(*item[string, string]).Value
+				require.Equal(t, back, backV)
 
-			back := keyVal[len(keyVal)-test.cap]
-			backV := cache.l.Back().Value.(*item[string, string]).Value
-			require.Equal(t, back, backV)
+				front := keyVal[len(keyVal)-1]
+				frontV := cache.l.Front().Value.(*item[string, string]).Value
+				require.Equal(t, front, frontV)
 
-			front := keyVal[len(keyVal)-1]
-			frontV := cache.l.Front().Value.(*item[string, string]).Value
-			require.Equal(t, front, frontV)
-
-			for _, s := range keyVal[len(keyVal)-test.cap:] {
-				v := cache.m[s].Value.(*item[string, string]).Value
-				require.Equal(t, s, v)
-			}
+				for _, s := range keyVal[len(keyVal)-test.cap:] {
+					v := cache.m[s].Value.(*item[string, string]).Value
+					require.Equal(t, s, v)
+				}
+				return nil
+			})
+			require.NoError(t, err)
 		})
 	}
 }
@@ -112,18 +121,23 @@ func TestCache_Drop(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(strconv.Itoa(i+1), func(t *testing.T) {
-			cache, err := newStringCache(test.cap, test.keyVal...)
+			cache, err := newSafeStringCache(test.cap, test.keyVal...)
 			require.NoError(t, err)
 
 			ok, err := cache.Drop(test.dropElem)
 			require.NoError(t, err)
 			require.Equal(t, test.result, ok)
-			require.NotContains(t, cache.m, test.dropElem)
-			for i := cache.l.Back(); i != nil && i.Next() != nil; i = i.Next() {
-				it := i.Value.(*item[string, string])
-				require.NotEqual(t, test.dropElem, it.Key)
-				require.NotEqual(t, test.dropElem, it.Value)
-			}
+
+			err = cache.Map(func(cache lruStringCache) error {
+				require.NotContains(t, cache.m, test.dropElem)
+				for i := cache.l.Back(); i != nil && i.Next() != nil; i = i.Next() {
+					it := i.Value.(*item[string, string])
+					require.NotEqual(t, test.dropElem, it.Key)
+					require.NotEqual(t, test.dropElem, it.Value)
+				}
+				return nil
+			})
+			require.NoError(t, err)
 		})
 	}
 }
@@ -144,14 +158,28 @@ func TestCache_Len(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(strconv.Itoa(i+1), func(t *testing.T) {
-			cache, err := newStringCache(test.cap, test.keyVal...)
+			cache, err := newSafeStringCache(test.cap)
 			require.NoError(t, err)
+
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				for _, kv := range test.keyVal {
+					err := cache.Set(kv, kv)
+					require.NoError(t, err)
+				}
+			}()
+			<-done
 
 			l, err := cache.Len()
 			require.NoError(t, err)
 			require.Equal(t, test.len, l)
-			require.Len(t, cache.m, test.len)
-			require.Equal(t, test.len, cache.l.Len())
+			err = cache.Map(func(cache lruStringCache) error {
+				require.Len(t, cache.m, test.len)
+				require.Equal(t, test.len, cache.l.Len())
+				return nil
+			})
+			require.NoError(t, err)
 		})
 	}
 }
@@ -168,7 +196,7 @@ func TestCache_Clear(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(strconv.Itoa(i+1), func(t *testing.T) {
-			cache, err := newStringCache(len(test.keyVal), test.keyVal...)
+			cache, err := newSafeStringCache(len(test.keyVal), test.keyVal...)
 			require.NoError(t, err)
 
 			err = cache.Clear()
@@ -177,8 +205,12 @@ func TestCache_Clear(t *testing.T) {
 			l, err := cache.Len()
 			require.NoError(t, err)
 			require.Zero(t, l)
-			require.Empty(t, cache.m)
-			require.Zero(t, cache.l.Len())
+			err = cache.Map(func(cache lruStringCache) error {
+				require.Empty(t, cache.m)
+				require.Zero(t, cache.l.Len())
+				return nil
+			})
+			require.NoError(t, err)
 		})
 	}
 }
