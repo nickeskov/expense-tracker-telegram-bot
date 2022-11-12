@@ -28,10 +28,28 @@ type UseCase struct {
 	expRepo      expense.Repository
 	userRepo     user.Repository
 	exrateRepo   exrate.Repository
+	reportsCache expense.ReportsCache
 }
 
 func New(baseCurrency models.CurrencyCode, expRepo expense.Repository, userRepo user.Repository, exrateRepo exrate.Repository) (*UseCase, error) {
-	return &UseCase{baseCurrency: baseCurrency, expRepo: expRepo, userRepo: userRepo, exrateRepo: exrateRepo}, nil
+	return NewWithCache(baseCurrency, expRepo, userRepo, exrateRepo, nil)
+}
+
+func NewWithCache(
+	baseCurrency models.CurrencyCode,
+	expRepo expense.Repository, userRepo user.Repository, exrateRepo exrate.Repository,
+	reportsCache expense.ReportsCache,
+) (*UseCase, error) {
+	if reportsCache == nil {
+		reportsCache = &noopCache{}
+	}
+	return &UseCase{
+		baseCurrency: baseCurrency,
+		expRepo:      expRepo,
+		userRepo:     userRepo,
+		exrateRepo:   exrateRepo,
+		reportsCache: reportsCache,
+	}, nil
 }
 
 func (u *UseCase) AddExpense(ctx context.Context, userID models.UserID, exp models.Expense) (_ models.Expense, err error) {
@@ -41,6 +59,12 @@ func (u *UseCase) AddExpense(ctx context.Context, userID models.UserID, exp mode
 		span.Finish()
 	}()
 	span.SetTag(userIDSpanTagKey, userID)
+	defer func() {
+		if err != nil {
+			return
+		}
+		err = u.reportsCache.DropCacheForUserID(ctx, userID)
+	}()
 
 	if err := exp.Validate(); err != nil {
 		return models.Expense{}, errors.Wrap(err, "expense validation failed")
@@ -99,14 +123,24 @@ func (u *UseCase) AddExpense(ctx context.Context, userID models.UserID, exp mode
 }
 
 func (u *UseCase) GetExpensesSummaryByCategorySince(ctx context.Context, userID models.UserID, since, till time.Time) (expense.SummaryReport, error) {
+	cached, ok, err := u.reportsCache.GetFromCache(ctx, userID, since, till)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get report from cache")
+	}
+	if ok {
+		return cached, nil
+	}
 	out := make(expense.SummaryReport)
-	err := u.handleExpensesAscendSinceTill(ctx, userID, since, till, func(expense *models.Expense) bool {
+	err = u.handleExpensesAscendSinceTill(ctx, userID, since, till, func(expense *models.Expense) bool {
 		categoryAmount := out[expense.Category]
 		out[expense.Category] = categoryAmount.Add(expense.Amount)
 		return true
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to iterate through expenses of userID=%d and split by categories", userID)
+	}
+	if err := u.reportsCache.AddToCache(ctx, userID, since, till, out); err != nil {
+		return nil, errors.Wrap(err, "failed to set report to cache")
 	}
 	return out, nil
 }
@@ -188,5 +222,19 @@ func (u *UseCase) handleExpensesAscendSinceTill(ctx context.Context, userID mode
 	if iterErr != nil {
 		return iterErr
 	}
+	return nil
+}
+
+type noopCache struct{}
+
+func (n noopCache) AddToCache(_ context.Context, _ models.UserID, _, _ time.Time, _ expense.SummaryReport) error {
+	return nil
+}
+
+func (n noopCache) GetFromCache(_ context.Context, _ models.UserID, _, _ time.Time) (expense.SummaryReport, bool, error) {
+	return nil, false, nil
+}
+
+func (n noopCache) DropCacheForUserID(_ context.Context, _ models.UserID) error {
 	return nil
 }
