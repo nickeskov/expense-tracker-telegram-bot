@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -19,6 +20,7 @@ import (
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/database/postgres"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/utils"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/config"
+	expCache "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/cache"
 	expenseRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/repository/postgres"
 	expenseUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/usecase"
 	exchangeRatesRepo "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate/repository/postgres"
@@ -139,10 +141,31 @@ func main() {
 		zapLogger.Fatal("Failed to create expenses repository", zap.Error(err))
 	}
 	// we use userUC and exrateUC here to do some interconnected business logic inside expenseUseCase instance
-	expUC, err := expenseUseCase.New(cfg.Values().BaseCurrency, expRepo, userUC, exrateUC)
+	var reportsCache *expCache.ReportsRedisCache
+	if redisCfg := cfg.Values().RedisConfig; redisCfg != nil {
+		redisDB := redis.NewClient(&redis.Options{
+			Addr:     redisCfg.Address,
+			Password: redisCfg.Password,
+			DB:       redisCfg.DB,
+		})
+		if err := redisDB.Ping(ctx).Err(); err != nil {
+			zapLogger.Fatal("Failed to ping redis", zap.Error(err))
+		}
+		defer func() {
+			if err := redisDB.Close(); err != nil {
+				zapLogger.Error("Failed to close redis", zap.Error(err))
+			}
+		}()
+		reportsCache, err = expCache.NewReportsRedisCache(redisDB)
+		if err != nil {
+			zapLogger.Fatal("Failed to crete expenses reports cache", zap.Error(err))
+		}
+	}
+	expUC, err := expenseUseCase.NewWithCache(cfg.Values().BaseCurrency, expRepo, userUC, exrateUC, reportsCache)
 	if err != nil {
 		zapLogger.Fatal("Failed to create expenses usecase", zap.Error(err))
 	}
+
 	opts := tg.Options{
 		Logger:     zapLogger,
 		LogUpdates: cfg.Values().LogUpdates,
