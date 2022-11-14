@@ -8,7 +8,10 @@ import (
 	cachePkg "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/cache"
 )
 
-type lruStringCache = *Cache[string, string]
+type (
+	lruStringCache     = *Cache[string, string]
+	lruStringCacheItem = *item[string, string]
+)
 
 func newSafeStringCache(capacity int, keyval ...string) (cachePkg.ThreadSafeCache[string, string, lruStringCache], error) {
 	cache, err := New[string, string](capacity)
@@ -46,14 +49,17 @@ func TestCache_Get(t *testing.T) {
 				keyVal = keyVal[test.cap:]
 			}
 			for _, s := range keyVal {
-				val, ok, err := cache.Get(s)
+				it, ok, err := cache.Get(s)
 				require.NoError(t, err)
 				require.True(t, ok)
-				require.Equal(t, s, val)
+				require.Equal(t, s, it.Value())
+				exactIt := it.(lruStringCacheItem)
+				require.Equal(t, s, exactIt.key)
+				require.Equal(t, s, exactIt.value)
 				err = cache.Map(func(cache lruStringCache) error {
-					front := cache.l.Front().Value.(*item[string, string])
-					require.Equal(t, s, front.Key)
-					require.Equal(t, s, front.Value)
+					front := cache.l.Front().Value.(lruStringCacheItem)
+					require.Equal(t, s, front.key)
+					require.Equal(t, s, front.value)
 					return nil
 				})
 				require.NoError(t, err)
@@ -87,15 +93,15 @@ func TestCache_Set(t *testing.T) {
 			keyVal := test.keyVal
 			err = cache.Map(func(cache lruStringCache) error {
 				back := keyVal[len(keyVal)-test.cap]
-				backV := cache.l.Back().Value.(*item[string, string]).Value
+				backV := cache.l.Back().Value.(lruStringCacheItem).Value()
 				require.Equal(t, back, backV)
 
 				front := keyVal[len(keyVal)-1]
-				frontV := cache.l.Front().Value.(*item[string, string]).Value
+				frontV := cache.l.Front().Value.(lruStringCacheItem).Value()
 				require.Equal(t, front, frontV)
 
 				for _, s := range keyVal[len(keyVal)-test.cap:] {
-					v := cache.m[s].Value.(*item[string, string]).Value
+					v := cache.m[s].Value.(lruStringCacheItem).Value()
 					require.Equal(t, s, v)
 				}
 				return nil
@@ -131,9 +137,9 @@ func TestCache_Drop(t *testing.T) {
 			err = cache.Map(func(cache lruStringCache) error {
 				require.NotContains(t, cache.m, test.dropElem)
 				for i := cache.l.Back(); i != nil && i.Next() != nil; i = i.Next() {
-					it := i.Value.(*item[string, string])
-					require.NotEqual(t, test.dropElem, it.Key)
-					require.NotEqual(t, test.dropElem, it.Value)
+					it := i.Value.(lruStringCacheItem)
+					require.NotEqual(t, test.dropElem, it.key)
+					require.NotEqual(t, test.dropElem, it.value)
 				}
 				return nil
 			})

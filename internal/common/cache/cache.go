@@ -11,8 +11,12 @@ var (
 	ErrEvictionFailed  = errors.New("eviction failed")
 )
 
+type Item[V any] interface {
+	Value() V
+}
+
 type Cache[K any, V any] interface {
-	Get(key K) (V, bool, error)
+	Get(key K) (Item[V], bool, error)
 	Set(key K, value V) error
 	Drop(key K) (bool, error)
 	Clear() error
@@ -33,7 +37,7 @@ func NewThreadSafeCache[K any, V any, C Cache[K, V]](inner C) ThreadSafeCache[K,
 	return &threadSafeCache[K, V, C]{mu: new(sync.Mutex), inner: inner}
 }
 
-func (c *threadSafeCache[K, V, C]) Get(key K) (V, bool, error) {
+func (c *threadSafeCache[K, V, C]) Get(key K) (Item[V], bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.inner.Get(key)

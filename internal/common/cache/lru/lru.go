@@ -8,12 +8,16 @@ import (
 )
 
 type item[K comparable, V any] struct {
-	Key   K
-	Value V
+	key   K
+	value V
+}
+
+func (i *item[K, V]) Value() V {
+	return i.value
 }
 
 func newItem[K comparable, V any](k K, v V) *item[K, V] {
-	return &item[K, V]{Key: k, Value: v}
+	return &item[K, V]{key: k, value: v}
 }
 
 type Cache[K comparable, V any] struct {
@@ -33,18 +37,17 @@ func New[K comparable, V any](capacity int) (*Cache[K, V], error) {
 	}, nil
 }
 
-func (c *Cache[K, V]) Get(key K) (V, bool, error) {
+func (c *Cache[K, V]) Get(key K) (cache.Item[V], bool, error) {
 	v, ok := c.moveToFrontAndGet(key)
 	if !ok {
-		var zero V
-		return zero, false, nil
+		return nil, false, nil
 	}
-	return v.Value, ok, nil
+	return v, ok, nil
 }
 
 func (c *Cache[K, V]) Set(key K, value V) error {
 	if it, ok := c.moveToFrontAndGet(key); ok {
-		it.Value = value
+		it.value = value
 		return nil
 	}
 	if l := c.len(); l >= c.cap {
@@ -96,7 +99,7 @@ func (c *Cache[K, V]) evictBack() bool {
 	}
 	back := c.l.Back()
 	it := back.Value.(*item[K, V])
-	delete(c.m, it.Key)
+	delete(c.m, it.key)
 	c.l.Remove(back)
 	return true
 }
