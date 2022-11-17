@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
@@ -17,6 +19,10 @@ const (
 	defaultFetchRequestTimeout = 5 * time.Second
 	fetchByDateLayout          = "2006-01-02"
 	exchangeRatesAPIURL        = "https://api.exchangerate.host"
+)
+
+const (
+	fetchDateUnixMillisSpanTagKey = "fetch_date_unix_ms"
 )
 
 type ExchangeRatesWebProvider struct {
@@ -43,7 +49,14 @@ func newExchangeRatesWebProvider(apiURL string, base models.CurrencyCode, suppor
 	}, nil
 }
 
-func (e *ExchangeRatesWebProvider) FetchExchangeRates(ctx context.Context, date time.Time) ([]models.ExchangeRate, error) {
+func (e *ExchangeRatesWebProvider) FetchExchangeRates(ctx context.Context, date time.Time) (_ []models.ExchangeRate, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "FetchExchangeRates")
+	defer func() {
+		ext.Error.Set(span, err != nil)
+		span.Finish()
+	}()
+	span.SetTag(fetchDateUnixMillisSpanTagKey, date.UnixMilli())
+
 	data, err := e.fetchData(ctx, date)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to fetch exchange rates data at time=%v", date)

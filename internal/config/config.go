@@ -12,12 +12,16 @@ import (
 type Values struct {
 	LogUpdates                  bool                  `yaml:"log-updates"`
 	Debug                       bool                  `yaml:"debug"`
+	LogLevel                    string                `yaml:"log-level"`
+	DevLogger                   bool                  `yaml:"dev-logger"`
 	BaseCurrency                models.CurrencyCode   `yaml:"base-currency"`
 	SupportedCurrencies         []models.CurrencyCode `yaml:"supported-currencies,flow"`
 	ExchangeRatesUpdateInterval time.Duration         `yaml:"exchange-rates-update-interval"`
 	WhiteList                   []int64               `yaml:"white-list,flow"`
 	BlackList                   []int64               `yaml:"black-list,flow"`
 	DBConnectionString          string                `yaml:"db-connection-string"`
+	HTTPEndpoint                string                `yaml:"http-endpoint"`
+	ServiceNameTracing          string                `yaml:"service-name-tracing"`
 }
 
 type config struct {
