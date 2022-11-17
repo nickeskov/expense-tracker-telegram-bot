@@ -1,6 +1,9 @@
-package tg
+package metrics
 
 import (
+	"strconv"
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -27,3 +30,11 @@ var (
 		},
 	}, []string{endpointLabelName, errorStatusLabelName})
 )
+
+func IncInFlightRequests(stringEndpoint string, errStatus bool) {
+	inFlightRequests.WithLabelValues(stringEndpoint, strconv.FormatBool(errStatus)).Inc()
+}
+
+func ObserveInFlightRequestsDuration(stringEndpoint string, errStatus bool, duration time.Duration) {
+	inFlightRequestsDuration.WithLabelValues(stringEndpoint, strconv.FormatBool(errStatus)).Observe(duration.Seconds())
+}

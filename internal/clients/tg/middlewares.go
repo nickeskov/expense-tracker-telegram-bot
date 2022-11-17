@@ -11,6 +11,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/pkg/errors"
+	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/clients/tg/metrics"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/models"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user"
 	"go.uber.org/zap"
@@ -62,9 +63,9 @@ func createEndpointMetricsMiddleware(endpoint string) telebot.MiddlewareFunc {
 			start := time.Now()
 			err := next(teleCtx)
 			duration := time.Since(start)
-			errStatus := strconv.FormatBool(err != nil)
-			inFlightRequests.WithLabelValues(stringEndpoint, errStatus).Inc()
-			inFlightRequestsDuration.WithLabelValues(stringEndpoint, errStatus).Observe(duration.Seconds())
+			errStatus := err != nil
+			metrics.IncInFlightRequests(stringEndpoint, errStatus)
+			metrics.ObserveInFlightRequestsDuration(stringEndpoint, errStatus, duration)
 			return err
 		}
 	}
