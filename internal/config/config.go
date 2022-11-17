@@ -22,6 +22,13 @@ type Values struct {
 	DBConnectionString          string                `yaml:"db-connection-string"`
 	HTTPEndpoint                string                `yaml:"http-endpoint"`
 	ServiceNameTracing          string                `yaml:"service-name-tracing"`
+	RedisConfig                 *RedisConfig          `yaml:"redis-config"`
+}
+
+type RedisConfig struct {
+	Address  string `yaml:"address"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
 }
 
 type config struct {
