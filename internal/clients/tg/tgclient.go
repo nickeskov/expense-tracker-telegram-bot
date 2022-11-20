@@ -403,6 +403,14 @@ func (c *Client) handleLimitCmd(ctx context.Context, teleCtx telebotReducedConte
 	return teleCtx.Send("Monthly limit successfully set")
 }
 
+func (c *Client) SendMessage(chatID int64, message string) error {
+	_, err := c.bot.Send(telebot.ChatID(chatID), message)
+	if err != nil {
+		return errors.Wrapf(err, "failed to send message to chatID=%d", chatID)
+	}
+	return nil
+}
+
 func (c *Client) Start(ctx context.Context) {
 	c.initHandlers(ctx)
 	c.bot.Start()
