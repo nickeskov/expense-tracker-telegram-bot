@@ -1,0 +1,15 @@
+version: v1
+
+# breaking changes detecting
+# types: FILE, PACKAGE, WIRE, WIRE_JSON
+breaking:
+  use:
+    - FILE
+
+lint:
+  use:
+    - DEFAULT
+# We can ignoring deps
+# +  ignore:
+#  +    - google/type/datetime.proto
+
