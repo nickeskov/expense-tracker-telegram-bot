@@ -19,12 +19,12 @@ run:
 	go run ${PACKAGE}
 
 generate: install-mockgen
-	#${MOCKGEN} -source=internal/expense/repository.go -destination=internal/mocks/expense/repository.go # unused for now
-	${MOCKGEN} -source=internal/expense/usecase.go -destination=internal/mocks/expense/usecase.go
-	${MOCKGEN} -source=internal/clients/tg/tgclient.go -destination=internal/mocks/clients/tg.go
-	${MOCKGEN} -source=internal/user/user.go -destination=internal/mocks/user/user.go
-	#${MOCKGEN} -source=internal/exrate/exrate.go -destination=internal/mocks/exrate/exrate.go #unused for now
-	#${MOCKGEN} -source=internal/providers/providers.go -destination=internal/mocks/providers/providers.go #unused for now
+	#${MOCKGEN} -source=internal/expense/repository.go -destination=internal/generated/mocks/expense/repository.go # unused for now
+	${MOCKGEN} -source=internal/expense/usecase.go -destination=internal/generated/mocks/expense/usecase.go
+	${MOCKGEN} -source=internal/clients/tg/tgclient.go -destination=internal/generated/mocks/clients/tg.go
+	${MOCKGEN} -source=internal/user/user.go -destination=internal/generated/mocks/user/user.go
+	#${MOCKGEN} -source=internal/exrate/exrate.go -destination=internal/generated/mocks/exrate/exrate.go #unused for now
+	#${MOCKGEN} -source=internal/providers/providers.go -destination=internal/generated/mocks/providers/providers.go #unused for now
 
 lint: install-lint
 	${LINTBIN} run

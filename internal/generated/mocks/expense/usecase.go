@@ -81,3 +81,70 @@ func (mr *MockUseCaseMockRecorder) GetExpensesSummaryByCategorySince(ctx, userID
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExpensesSummaryByCategorySince", reflect.TypeOf((*MockUseCase)(nil).GetExpensesSummaryByCategorySince), ctx, userID, since, till)
 }
+
+// MockReportsCache is a mock of ReportsCache interface.
+type MockReportsCache struct {
+	ctrl     *gomock.Controller
+	recorder *MockReportsCacheMockRecorder
+}
+
+// MockReportsCacheMockRecorder is the mock recorder for MockReportsCache.
+type MockReportsCacheMockRecorder struct {
+	mock *MockReportsCache
+}
+
+// NewMockReportsCache creates a new mock instance.
+func NewMockReportsCache(ctrl *gomock.Controller) *MockReportsCache {
+	mock := &MockReportsCache{ctrl: ctrl}
+	mock.recorder = &MockReportsCacheMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockReportsCache) EXPECT() *MockReportsCacheMockRecorder {
+	return m.recorder
+}
+
+// AddToCache mocks base method.
+func (m *MockReportsCache) AddToCache(ctx context.Context, userID models.UserID, since, till time.Time, report expense.SummaryReport) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddToCache", ctx, userID, since, till, report)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddToCache indicates an expected call of AddToCache.
+func (mr *MockReportsCacheMockRecorder) AddToCache(ctx, userID, since, till, report interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddToCache", reflect.TypeOf((*MockReportsCache)(nil).AddToCache), ctx, userID, since, till, report)
+}
+
+// DropCacheForUserID mocks base method.
+func (m *MockReportsCache) DropCacheForUserID(ctx context.Context, userID models.UserID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DropCacheForUserID", ctx, userID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DropCacheForUserID indicates an expected call of DropCacheForUserID.
+func (mr *MockReportsCacheMockRecorder) DropCacheForUserID(ctx, userID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DropCacheForUserID", reflect.TypeOf((*MockReportsCache)(nil).DropCacheForUserID), ctx, userID)
+}
+
+// GetFromCache mocks base method.
+func (m *MockReportsCache) GetFromCache(ctx context.Context, userID models.UserID, since, till time.Time) (expense.SummaryReport, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFromCache", ctx, userID, since, till)
+	ret0, _ := ret[0].(expense.SummaryReport)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetFromCache indicates an expected call of GetFromCache.
+func (mr *MockReportsCacheMockRecorder) GetFromCache(ctx, userID, since, till interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFromCache", reflect.TypeOf((*MockReportsCache)(nil).GetFromCache), ctx, userID, since, till)
+}
