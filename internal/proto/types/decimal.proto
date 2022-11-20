@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package types;
+option go_package = "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/generated/proto/types";
+
+message Decimal {
+  int32 exponent = 1;
+  bytes mantissa = 2;
+}
