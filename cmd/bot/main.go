@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"flag"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -25,6 +26,7 @@ import (
 	expenseUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/usecase"
 	exchangeRatesRepo "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate/repository/postgres"
 	exrateUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate/usecase"
+	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/grpc/reports"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/providers"
 	userRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user/repository/postgres"
 	userUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user/usecase"
@@ -184,6 +186,26 @@ func main() {
 		}
 		defer func() {
 			<-providerDone
+		}()
+	}
+	if grpcEndpoint := cfg.Values().GRPCEndpoint; grpcEndpoint != "" {
+		reportsService, err := reports.NewService(cl, zapLogger)
+		if err != nil {
+			zapLogger.Fatal("Failed to create gRPC reports service", zap.Error(err))
+		}
+		l, err := net.Listen("tcp", grpcEndpoint)
+		if err != nil {
+			zapLogger.Fatal("Failed to open listener for gRPC", zap.Error(err), zap.String("address", grpcEndpoint))
+		}
+		defer func() {
+			if err := l.Close(); err != nil {
+				zapLogger.Error("Failed to close gRPC listener", zap.Error(err))
+			}
+		}()
+		go func() {
+			if err := reportsService.Serve(ctx, l); err != nil {
+				zapLogger.Fatal("Failed to run serve on gRPC reports service", zap.Error(err))
+			}
 		}()
 	}
 	go cl.Start(ctx)
