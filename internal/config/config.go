@@ -23,6 +23,7 @@ type Values struct {
 	HTTPEndpoint                string                `yaml:"http-endpoint"`
 	ServiceNameTracing          string                `yaml:"service-name-tracing"`
 	RedisConfig                 *RedisConfig          `yaml:"redis-config"`
+	GRPCEndpoint                string                `yaml:"grpc-endpoint"`
 }
 
 type RedisConfig struct {
