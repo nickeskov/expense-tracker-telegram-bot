@@ -82,6 +82,88 @@ func (mr *MockUseCaseMockRecorder) GetExpensesSummaryByCategorySince(ctx, userID
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExpensesSummaryByCategorySince", reflect.TypeOf((*MockUseCase)(nil).GetExpensesSummaryByCategorySince), ctx, userID, since, till)
 }
 
+// MockExtendedUseCase is a mock of ExtendedUseCase interface.
+type MockExtendedUseCase struct {
+	ctrl     *gomock.Controller
+	recorder *MockExtendedUseCaseMockRecorder
+}
+
+// MockExtendedUseCaseMockRecorder is the mock recorder for MockExtendedUseCase.
+type MockExtendedUseCaseMockRecorder struct {
+	mock *MockExtendedUseCase
+}
+
+// NewMockExtendedUseCase creates a new mock instance.
+func NewMockExtendedUseCase(ctrl *gomock.Controller) *MockExtendedUseCase {
+	mock := &MockExtendedUseCase{ctrl: ctrl}
+	mock.recorder = &MockExtendedUseCaseMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockExtendedUseCase) EXPECT() *MockExtendedUseCaseMockRecorder {
+	return m.recorder
+}
+
+// AddExpense mocks base method.
+func (m *MockExtendedUseCase) AddExpense(ctx context.Context, userID models.UserID, expense models.Expense) (models.Expense, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddExpense", ctx, userID, expense)
+	ret0, _ := ret[0].(models.Expense)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddExpense indicates an expected call of AddExpense.
+func (mr *MockExtendedUseCaseMockRecorder) AddExpense(ctx, userID, expense interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddExpense", reflect.TypeOf((*MockExtendedUseCase)(nil).AddExpense), ctx, userID, expense)
+}
+
+// GetExpensesAscendSinceTill mocks base method.
+func (m *MockExtendedUseCase) GetExpensesAscendSinceTill(ctx context.Context, userID models.UserID, since, till time.Time, max int) ([]models.Expense, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetExpensesAscendSinceTill", ctx, userID, since, till, max)
+	ret0, _ := ret[0].([]models.Expense)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetExpensesAscendSinceTill indicates an expected call of GetExpensesAscendSinceTill.
+func (mr *MockExtendedUseCaseMockRecorder) GetExpensesAscendSinceTill(ctx, userID, since, till, max interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExpensesAscendSinceTill", reflect.TypeOf((*MockExtendedUseCase)(nil).GetExpensesAscendSinceTill), ctx, userID, since, till, max)
+}
+
+// GetExpensesSummaryByCategorySince mocks base method.
+func (m *MockExtendedUseCase) GetExpensesSummaryByCategorySince(ctx context.Context, userID models.UserID, since, till time.Time) (expense.SummaryReport, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetExpensesSummaryByCategorySince", ctx, userID, since, till)
+	ret0, _ := ret[0].(expense.SummaryReport)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetExpensesSummaryByCategorySince indicates an expected call of GetExpensesSummaryByCategorySince.
+func (mr *MockExtendedUseCaseMockRecorder) GetExpensesSummaryByCategorySince(ctx, userID, since, till interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExpensesSummaryByCategorySince", reflect.TypeOf((*MockExtendedUseCase)(nil).GetExpensesSummaryByCategorySince), ctx, userID, since, till)
+}
+
+// SendGetExpensesSummaryByCategorySinceRequest mocks base method.
+func (m *MockExtendedUseCase) SendGetExpensesSummaryByCategorySinceRequest(ctx context.Context, chatID int64, userID models.UserID, since, till time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendGetExpensesSummaryByCategorySinceRequest", ctx, chatID, userID, since, till)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendGetExpensesSummaryByCategorySinceRequest indicates an expected call of SendGetExpensesSummaryByCategorySinceRequest.
+func (mr *MockExtendedUseCaseMockRecorder) SendGetExpensesSummaryByCategorySinceRequest(ctx, chatID, userID, since, till interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendGetExpensesSummaryByCategorySinceRequest", reflect.TypeOf((*MockExtendedUseCase)(nil).SendGetExpensesSummaryByCategorySinceRequest), ctx, chatID, userID, since, till)
+}
+
 // MockReportsCache is a mock of ReportsCache interface.
 type MockReportsCache struct {
 	ctrl     *gomock.Controller
