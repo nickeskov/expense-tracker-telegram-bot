@@ -1,0 +1,16 @@
+token: "" #set to your telegram bot token
+base-currency: "RUB"
+exchange-rates-update-interval: "10s"
+supported-currencies: [ "RUB", "USD", "EUR" ]
+log-updates: true
+debug: true
+db-connection-string: "host=localhost port=5432 user=postgres password=postgres dbname=tgbot sslmode=disable"
+http-endpoint: ":8080"
+service-name-tracing: "telegram-bot"
+redis-config:
+  address: "localhost:6379"
+grpc-endpoint: "localhost:4242"
+kafka-config:
+  brokers: [ "localhost:9092" ]
+  reports-topic: "reports"
+  consumer-group: "tg-reports"
