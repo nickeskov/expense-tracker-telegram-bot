@@ -13,20 +13,24 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/Shopify/sarama"
 	"github.com/go-redis/redis/v8"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/clients/tg"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/database/postgres"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/utils"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/config"
+	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense"
 	expCache "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/cache"
 	expenseRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/repository/postgres"
 	expenseUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/usecase"
 	exchangeRatesRepo "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate/repository/postgres"
 	exrateUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate/usecase"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/grpc/reports"
+	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/kafka"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/providers"
 	userRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user/repository/postgres"
 	userUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user/usecase"
@@ -163,9 +167,51 @@ func main() {
 			zapLogger.Fatal("Failed to crete expenses reports cache", zap.Error(err))
 		}
 	}
-	expUC, err := expenseUseCase.NewWithCache(cfg.Values().BaseCurrency, expRepo, userUC, exrateUC, reportsCache)
+
+	var expUC expense.UseCase
+	regularExpUC, err := expenseUseCase.NewWithCache(cfg.Values().BaseCurrency, expRepo, userUC, exrateUC, reportsCache)
 	if err != nil {
 		zapLogger.Fatal("Failed to create expenses usecase", zap.Error(err))
+	}
+	if kafkaCfg := cfg.Values().KafkaConfig; kafkaCfg != nil {
+		kafkaAsyncProducer, err := kafka.NewConfig().WithMetrics(
+			prometheus.DefaultRegisterer, "kafka-producer", "", 1*time.Second,
+			func(err error) {
+				zapLogger.Error("Failed to update kafka consumer metrics", zap.Error(err))
+			},
+		).WithSuccessHandler(func(messages <-chan *sarama.ProducerMessage) {
+			for message := range messages {
+				zapLogger.Info("Message was sent to kafka",
+					zap.String("topic", message.Topic),
+					zap.Int64("offset", message.Offset),
+					zap.Int32("partition", message.Partition),
+				)
+			}
+		}).BuildAsyncProducer(cfg.Values().KafkaConfig.Brokers, func(producerErrors <-chan *sarama.ProducerError) {
+			for err := range producerErrors {
+				zapLogger.Error("Failed to produce message to kafka topic",
+					zap.Error(err),
+					zap.String("topic", err.Msg.Topic),
+					zap.Int64("offset", err.Msg.Offset),
+					zap.Int32("partition", err.Msg.Partition),
+				)
+			}
+		})
+		if err != nil {
+			zapLogger.Fatal("Failed to build kafka async producer", zap.Error(err))
+		}
+		defer func() {
+			if err := kafkaAsyncProducer.Close(); err != nil {
+				zapLogger.Error("Failed to close kafka async producer", zap.Error(err))
+			}
+		}()
+		extendedExpUC, err := expenseUseCase.NewExtendedUseCase(regularExpUC, cfg.Values().KafkaConfig.ReportsTopic, kafkaAsyncProducer)
+		if err != nil {
+			zapLogger.Fatal("Failed to create extended expenses usecase", zap.Error(err))
+		}
+		expUC = extendedExpUC
+	} else {
+		expUC = regularExpUC
 	}
 
 	opts := tg.Options{
