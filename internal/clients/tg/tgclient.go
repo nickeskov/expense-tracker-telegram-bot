@@ -167,6 +167,13 @@ func (c *Client) initHandlers(ctx context.Context) {
 	c.handle(ctx, "/report", c.handleExpensesReportCmd, checkUser, createRequireArgsCountMiddleware(2, 2))
 	c.handle(ctx, "/list", c.handleExpensesListCmd, checkUser, createRequireArgsCountMiddleware(2, 2))
 	c.handle(ctx, "/limit", c.handleLimitCmd, checkUser, createRequireArgsCountMiddleware(0, 1))
+	var reportHandler endpointHandler
+	if _, isExtendedExpensesUC := c.expUC.(expense.ExtendedUseCase); isExtendedExpensesUC {
+		reportHandler = c.handleExpensesReportCmdAsync
+	} else {
+		reportHandler = c.handleExpensesReportCmd
+	}
+	c.handle(ctx, "/report", reportHandler, checkUser, createRequireArgsCountMiddleware(2, 2))
 }
 
 type endpointHandler func(context.Context, telebotReducedContext) error
@@ -241,6 +248,33 @@ func (c *Client) handleExpenseCmd(ctx context.Context, teleCtx telebotReducedCon
 		}
 	}
 	return teleCtx.Send("Expense successfully created")
+}
+
+func (c *Client) handleExpensesReportCmdAsync(ctx context.Context, teleCtx telebotReducedContext) error {
+	args := teleCtx.Args()
+	if len(args) < 2 {
+		return errors.New("not enough arguments to create expenses report")
+	}
+	extendedExpUC, ok := c.expUC.(expense.ExtendedUseCase)
+	if !ok {
+		return errors.Errorf("(%T) does not implement (%T)", c.expUC, extendedExpUC)
+	}
+	sinceStr, tillStr := args[0], args[1]
+	since, err := time.Parse(dateLayout, sinceStr)
+	if err != nil {
+		return teleCtx.Send(fmt.Sprintf("Failed to parse since date: %v", err))
+	}
+	till, err := time.Parse(dateLayout, tillStr)
+	if err != nil {
+		return teleCtx.Send(fmt.Sprintf("Failed to parse till date: %v", err))
+	}
+	msg := teleCtx.Message()
+	userID := models.UserID(msg.Sender.ID)
+	chatID := msg.Chat.ID
+	if err := extendedExpUC.SendGetExpensesSummaryByCategorySinceRequest(ctx, chatID, userID, since, till); err != nil {
+		return errors.Wrapf(err, "failed to send expenses summary by category since request for chatID=%d and userID=%d", chatID, userID)
+	}
+	return nil
 }
 
 func (c *Client) handleExpensesReportCmd(ctx context.Context, teleCtx telebotReducedContext) error {
