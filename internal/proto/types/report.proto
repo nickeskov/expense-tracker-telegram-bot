@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package types;
+option go_package = "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/generated/proto/types";
+
+import "types/decimal.proto";
+
+message Report {
+  message ByCategories {
+    map<string, Decimal> value = 1;
+  }
+  reserved 1 to 9;
+  oneof value {
+    ByCategories by_categories = 10;
+  }
+}

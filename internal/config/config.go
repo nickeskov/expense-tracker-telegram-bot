@@ -23,12 +23,20 @@ type Values struct {
 	HTTPEndpoint                string                `yaml:"http-endpoint"`
 	ServiceNameTracing          string                `yaml:"service-name-tracing"`
 	RedisConfig                 *RedisConfig          `yaml:"redis-config"`
+	GRPCEndpoint                string                `yaml:"grpc-endpoint"`
+	KafkaConfig                 *KafkaConfig          `yaml:"kafka-config"`
 }
 
 type RedisConfig struct {
 	Address  string `yaml:"address"`
 	Password string `yaml:"password"`
 	DB       int    `yaml:"db"`
+}
+
+type KafkaConfig struct {
+	Brokers       []string `yaml:"brokers,flow"`
+	ReportsTopic  string   `yaml:"reports-topic"`
+	ConsumerGroup string   `yaml:"consumer-group"`
 }
 
 type config struct {

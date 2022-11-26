@@ -43,6 +43,11 @@ type UseCase interface {
 	GetExpensesAscendSinceTill(ctx context.Context, userID models.UserID, since, till time.Time, max int) ([]models.Expense, error)
 }
 
+type ExtendedUseCase interface {
+	UseCase
+	SendGetExpensesSummaryByCategorySinceRequest(ctx context.Context, chatID int64, userID models.UserID, since, till time.Time) error
+}
+
 type ReportsCache interface {
 	AddToCache(ctx context.Context, userID models.UserID, since, till time.Time, report SummaryReport) error
 	GetFromCache(ctx context.Context, userID models.UserID, since, till time.Time) (SummaryReport, bool, error)

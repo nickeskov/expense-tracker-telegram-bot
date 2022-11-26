@@ -6,35 +6,33 @@ import (
 	"database/sql"
 	"flag"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"time"
 
-	"github.com/Shopify/sarama"
 	"github.com/go-redis/redis/v8"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/clients/tg"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/database/postgres"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/common/utils"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/config"
-	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense"
 	expCache "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/cache"
 	expenseRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/repository/postgres"
 	expenseUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/expense/usecase"
 	exchangeRatesRepo "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate/repository/postgres"
 	exrateUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/exrate/usecase"
-	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/grpc/reports"
+	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/generated/proto/api"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/kafka"
 	"gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/providers"
 	userRepository "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user/repository/postgres"
 	userUseCase "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/user/usecase"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -54,6 +52,7 @@ func readConfig(path string) (*config.Service, error) {
 }
 
 func main() {
+	// TODO: refactor copy-paste from cmd/bot/main
 	flag.Parse()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -167,97 +166,49 @@ func main() {
 			zapLogger.Fatal("Failed to crete expenses reports cache", zap.Error(err))
 		}
 	}
-
-	var expUC expense.UseCase
-	regularExpUC, err := expenseUseCase.NewWithCache(cfg.Values().BaseCurrency, expRepo, userUC, exrateUC, reportsCache)
+	expUC, err := expenseUseCase.NewWithCache(cfg.Values().BaseCurrency, expRepo, userUC, exrateUC, reportsCache)
 	if err != nil {
 		zapLogger.Fatal("Failed to create expenses usecase", zap.Error(err))
 	}
-	if kafkaCfg := cfg.Values().KafkaConfig; kafkaCfg != nil {
-		kafkaAsyncProducer, err := kafka.NewConfig().WithMetrics(
-			prometheus.DefaultRegisterer, "kafka-producer", "", 1*time.Second,
-			func(err error) {
-				zapLogger.Error("Failed to update kafka consumer metrics", zap.Error(err))
-			},
-		).WithSuccessHandler(func(messages <-chan *sarama.ProducerMessage) {
-			for message := range messages {
-				zapLogger.Info("Message was sent to kafka",
-					zap.String("topic", message.Topic),
-					zap.Int64("offset", message.Offset),
-					zap.Int32("partition", message.Partition),
-				)
-			}
-		}).BuildAsyncProducer(cfg.Values().KafkaConfig.Brokers, func(producerErrors <-chan *sarama.ProducerError) {
-			for err := range producerErrors {
-				zapLogger.Error("Failed to produce message to kafka topic",
-					zap.Error(err),
-					zap.String("topic", err.Msg.Topic),
-					zap.Int64("offset", err.Msg.Offset),
-					zap.Int32("partition", err.Msg.Partition),
-				)
-			}
-		})
-		if err != nil {
-			zapLogger.Fatal("Failed to build kafka async producer", zap.Error(err))
-		}
-		defer func() {
-			if err := kafkaAsyncProducer.Close(); err != nil {
-				zapLogger.Error("Failed to close kafka async producer", zap.Error(err))
-			}
-		}()
-		extendedExpUC, err := expenseUseCase.NewExtendedUseCase(regularExpUC, cfg.Values().KafkaConfig.ReportsTopic, kafkaAsyncProducer)
-		if err != nil {
-			zapLogger.Fatal("Failed to create extended expenses usecase", zap.Error(err))
-		}
-		expUC = extendedExpUC
-	} else {
-		expUC = regularExpUC
-	}
 
-	opts := tg.Options{
-		Logger:     zapLogger,
-		LogUpdates: cfg.Values().LogUpdates,
-		WhiteList:  cfg.Values().WhiteList,
-		BlackList:  cfg.Values().BlackList,
-		Debug:      cfg.Values().Debug,
-	}
-	cl, err := tg.NewWithOptions(cfg.Token(), cfg.Values().BaseCurrency, cfg.Values().SupportedCurrencies, expUC, userUC, opts)
+	kafkaConsumer, err := kafka.NewConfig().WithMetrics(
+		prometheus.DefaultRegisterer, "kafka-consumer", cfg.Values().KafkaConfig.ConsumerGroup, 1*time.Second,
+		func(err error) {
+			zapLogger.Error("Failed to update kafka consumer metrics", zap.Error(err))
+		},
+	).BuildConsumerGroup(cfg.Values().KafkaConfig.Brokers, cfg.Values().KafkaConfig.ConsumerGroup)
 	if err != nil {
-		zapLogger.Fatal("Failed to init telegram bot", zap.Error(err))
+		zapLogger.Fatal("Failed to build kafka consumer", zap.Error(err))
 	}
-	if interval := cfg.Values().ExchangeRatesUpdateInterval; interval != 0 {
-		providerDone, err := exrateUC.RunAutoUpdater(ctx, zapLogger, interval)
-		if err != nil {
-			zapLogger.Fatal("Failed to run exchange rates auto updater", zap.Error(err))
+	defer func() {
+		if err := kafkaConsumer.Close(); err != nil {
+			zapLogger.Error("Failed to close kafka consumer", zap.Error(err))
 		}
-		defer func() {
-			<-providerDone
-		}()
+	}()
+
+	conn, err := grpc.Dial(cfg.Values().GRPCEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		zapLogger.Fatal("Failed to open gRPC connection", zap.Error(err))
 	}
-	if grpcEndpoint := cfg.Values().GRPCEndpoint; grpcEndpoint != "" {
-		reportsService, err := reports.NewService(cl, zapLogger)
-		if err != nil {
-			zapLogger.Fatal("Failed to create gRPC reports service", zap.Error(err))
+	defer func() {
+		if err := conn.Close(); err != nil {
+			zapLogger.Error("Failed to close gRPC connection", zap.Error(err))
 		}
-		l, err := net.Listen("tcp", grpcEndpoint)
-		if err != nil {
-			zapLogger.Fatal("Failed to open listener for gRPC", zap.Error(err), zap.String("address", grpcEndpoint))
+	}()
+	reporter := api.NewReportsServiceClient(conn)
+
+	reportsHandler := NewReportsHandler(zapLogger, expUC, reporter)
+	topics := []string{cfg.Values().KafkaConfig.ReportsTopic}
+
+	for {
+		select {
+		default:
+		case <-ctx.Done():
+			return
 		}
-		defer func() {
-			if err := l.Close(); err != nil {
-				zapLogger.Error("Failed to close gRPC listener", zap.Error(err))
-			}
-		}()
-		go func() {
-			if err := reportsService.Serve(ctx, l); err != nil {
-				zapLogger.Fatal("Failed to run serve on gRPC reports service", zap.Error(err))
-			}
-		}()
+		err := kafkaConsumer.Consume(ctx, topics, reportsHandler)
+		if err != nil {
+			zapLogger.Fatal("Failed to start consuming kafka topic", zap.String("topic", cfg.Values().KafkaConfig.ReportsTopic))
+		}
 	}
-	go cl.Start(ctx)
-	zapLogger.Info("Bot initialized successfully ans started")
-	<-ctx.Done()
-	zapLogger.Info("Stopping bot...")
-	cl.Stop()
-	zapLogger.Info("Bot successfully stopped")
 }

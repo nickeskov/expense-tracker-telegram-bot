@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package api;
+option go_package = "gitlab.ozon.dev/mr.eskov1/telegram-bot/internal/generated/grpc/api";
+import "types/report.proto";
+
+message SendReportRequest {
+  int64 chat_id = 1;
+  optional int64 user_id = 2;
+  types.Report report = 3;
+}
+
+message SendReportResponse {}
+
+service ReportsService {
+  rpc SendReport(SendReportRequest) returns (SendReportResponse);
+}

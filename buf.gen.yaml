@@ -1,0 +1,19 @@
+version: v1
+plugins:
+  - name: go
+    path: protoc-gen-go
+    out: internal/generated/proto
+    opt:
+      - paths=source_relative
+    strategy: directory
+  - name: go-grpc
+    path: protoc-gen-go-grpc
+    out: internal/generated/proto
+    opt:
+      - paths=source_relative
+    strategy: directory
+#  - name: grpc-gateway
+#    out: internal/generated/proto
+#    opt:
+#      - paths=source_relative
+#      - generate_unbound_methods=true
